@@ -50,8 +50,15 @@ logs.log
 *.log
 .env
 .db
+!resources/domophone.db
 .sqlite3
 
 # ОС
 .DS_Store
 Thumbs.db
+
+# Secrets
+config/test_config.yaml
+
+# Отчёты
+reports/

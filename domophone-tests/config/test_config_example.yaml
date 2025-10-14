@@ -1,0 +1,12 @@
+# config/test_config.yaml
+device:
+  host: "192.168.88.171"
+  port: 80
+  username: "admin"
+  password: "password"
+  protocol: "http"  # или "https"
+
+firmware:
+  expected_version: "2024.11.174929578"  # необязательно, можно получать через API
+
+db_path: "resources/domophone.db"
