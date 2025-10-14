@@ -50,7 +50,7 @@ logs.log
 *.log
 .env
 .db
-!resources/domophone.db
+!domophone-tests/resources/domophone.db
 .sqlite3
 
 # ОС
@@ -58,7 +58,7 @@ logs.log
 Thumbs.db
 
 # Secrets
-config/test_config.yaml
+domophone-tests/config/test_config.yaml
 
 # Отчёты
 reports/
