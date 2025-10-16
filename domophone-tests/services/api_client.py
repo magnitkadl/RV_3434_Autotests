@@ -6,7 +6,7 @@ import os
 
 
 class ApiClient:
-    def __init__(self, config_path: str = "config/test_config_example.yaml"):
+    def __init__(self, config_path: str = "domophone-tests/config/test_config.yaml"):
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
 
@@ -26,7 +26,7 @@ class ApiClient:
 
     def get_firmware_version(self) -> str:
         """Пример: получение версии прошивки через /api/system/info"""
-        resp = self.session.get(f"{self.base_url}/api/system/info")
+        resp = self.session.get(f"{self.base_url}/api/v1/version")
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 

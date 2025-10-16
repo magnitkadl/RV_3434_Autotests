@@ -13,7 +13,7 @@ def test_parameter_default_matches_db(db, api_client):
     fw_model = get_firmware_by_version(db, current_fw_version)
     assert fw_model is not None, f"Прошивка {current_fw_version} не найдена в БД"
 
-    param_uuid = "door_lock_timeout"  # ← замени на реальный UUID из твоей БД
+    param_uuid = "system_audio.volume"  # ← замени на реальный UUID из твоей БД
 
     # Act
     param_from_db = get_parameter(db, param_uuid, fw_model.id)

@@ -1,5 +1,5 @@
 # core/__init__.py
-from .db import get_db_connection
+from .db import get_db_connection, get_firmware_by_version
 from .models import FirmwareVersion, ConfigParameter, ApiMethod, ParameterUiMapping
 from .firmware import get_firmware_versions_ordered, is_firmware_older
 from .parameter import get_parameter
