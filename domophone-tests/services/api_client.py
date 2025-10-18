@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import yaml
 import os
 from core import get_parameter, get_firmware_by_version, get_db_connection
+from jsonpath_ng import parse
 
 
 class ApiClient:
@@ -119,6 +120,7 @@ class ApiClient:
         method_to_url = {
             "get_security_config": "/api/v1/security/config",
             "get_network_settings": "/api/v1/network",
+            "/api/v1/settings/audio/system": "/api/v1/settings/audio/system"
             # ... добавь все 200 методов или сделай шаблон
         }
         path = method_to_url.get(method_name)
