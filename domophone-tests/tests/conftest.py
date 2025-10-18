@@ -7,7 +7,7 @@ from services.api_client import ApiClient
 
 @pytest.fixture(scope="session")
 def test_config():
-    config_path = os.getenv("TEST_CONFIG", "domophone-tests/config/test_config.yaml")
+    config_path = os.getenv("TEST_CONFIG", "config/test_config.yaml")
     return config_path
 
 
