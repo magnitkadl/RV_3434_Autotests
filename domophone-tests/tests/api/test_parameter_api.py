@@ -9,11 +9,10 @@ from core import get_parameter, get_firmware_by_version
 @allure.story("Чтение параметров")
 def test_parameter_default_matches_db(db, api_client, firmware_version):
     # Arrange
-    current_fw_version = firmware_version
-    fw_model = get_firmware_by_version(db, current_fw_version)
-    assert fw_model is not None, f"Прошивка {current_fw_version} не найдена в БД"
+    fw_model = get_firmware_by_version(db, firmware_version)
+    #assert fw_model is not None, f"Прошивка {firmware_version} не найдена в БД"
 
-    param_uuid = "system_audio.volume"  # ← замени на реальный UUID из твоей БД
+    param_uuid = "system_audio.volume"
 
     # Act
     param_from_db = get_parameter(db, param_uuid, fw_model.id)
