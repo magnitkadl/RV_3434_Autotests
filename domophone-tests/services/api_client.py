@@ -51,7 +51,7 @@ class ApiClient:
             self._db_conn = get_db_connection(cfg["db_path"])
         return self._db_conn
 
-    def get_parameter(self, param_uuid: str) -> Any:
+    def get_parameter(self, param_uuid: str, firmware_version) -> Any:
         """
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
@@ -62,10 +62,11 @@ class ApiClient:
             db = self._get_db()
 
             # Шаг 1: найдём текущую прошивку устройства
-            current_fw_version = self.get_firmware_version()  # ← должен работать!
+            #current_fw_version = self.get_firmware_version()  # ← должен работать!
+            current_fw_version = firmware_version
             fw = get_firmware_by_version(conn, current_fw_version)
-            if not fw:
-                raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
+            # if not fw:
+            #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
 
             # Шаг 2: найдём метод, который отдаёт этот параметр
             # Ищем в api_method_params запись для (param_uuid, fw.id)
