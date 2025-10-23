@@ -36,7 +36,7 @@ class ApiClient:
             self._db_path = cfg["db_path"]
 
     def get_firmware_version(self) -> str:
-        """Пример: получение версии прошивки через /api/system/info"""
+        """Пример: получение версии прошивки через /api/v1/version"""
         resp = self.session.get(f"{self.base_url}/api/v1/version")
         resp.raise_for_status()
         return resp.json().get("firmware_version")
@@ -111,6 +111,12 @@ class ApiClient:
                 return matches[0]  # берем первое совпадение
             except Exception as e:
                 raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
+
+    def _set_parameter(self, param_uuid: str, value: Any) -> None:
+        """Пример: получение версии прошивки через /api/v1/version"""
+        resp = self.session.get(f"{self.base_url}/api/v1/version")
+        resp.raise_for_status()
+        return resp.json().get("firmware_version")
 
     def _resolve_method_url(self, method_name: str) -> str:
         """
