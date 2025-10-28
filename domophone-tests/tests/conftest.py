@@ -28,10 +28,18 @@ def api_client(test_config):
     client.close()
 
 @pytest.fixture(scope="session")
-def firmware_version(api_client) -> str:
+def firmware_version(api_client, test_config) -> str:
     """
     Получает версию прошивки один раз в начале тестовой сессии.
     """
-    raw_version = api_client.get_firmware_version()  # ваш метод в ApiClient
+    import yaml
+    with open(test_config) as f:
+        config = yaml.safe_load(f)
+    version_source = config["firmware"]["version_source"]
+
+    if version_source == "api":
+        raw_version = api_client.get_firmware_version()
+    elif version_source == "config":
+        raw_version = config["firmware"]["expected_version"]
 
     return raw_version

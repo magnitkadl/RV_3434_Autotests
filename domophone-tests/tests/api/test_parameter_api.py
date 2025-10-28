@@ -18,7 +18,7 @@ def test_parameter_default_matches_db(db, api_client, firmware_version):
     param_from_db = get_parameter(db, param_uuid, fw_model.id)
     assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {current_fw_version}"
 
-    actual_value = api_client.get_parameter(param_uuid)
+    actual_value = api_client.get_parameter(param_uuid, firmware_version)
 
     # Assert
     expected_default = param_from_db.default_value
