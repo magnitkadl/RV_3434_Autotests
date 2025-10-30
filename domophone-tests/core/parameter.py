@@ -21,7 +21,7 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
     if param_from_db.data_type_id == 1:  # допустим, 1 = int
         min_value = int(param_from_db.min_value) if param_from_db.min_value else None
         max_value = int(param_from_db.max_value) if param_from_db.max_value else None
-        test_value = random.randint(min_value, max_value)
+        test_value = random.randint(min_value, max_value - 1)
 
         # Если оно >= исключаемого — сдвигаем на 1
         if test_value >= actual_value:
