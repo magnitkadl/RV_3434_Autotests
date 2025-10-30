@@ -113,8 +113,8 @@ class ApiClient:
                 raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
 
     def _set_parameter(self, param_uuid: str, value: Any) -> None:
-        """Пример: получение версии прошивки через /api/v1/version"""
-        resp = self.session.get(f"{self.base_url}/api/v1/version")
+        """Надо переписать на основе get_parameter"""
+        resp = self.session.patch(f"{self.base_url}/api/v1/version")
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 

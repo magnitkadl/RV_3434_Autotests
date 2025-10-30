@@ -7,6 +7,7 @@ device:
   protocol: "http"  # или "https"
 
 firmware:
-  expected_version: "2024.11.174929578"  # необязательно, можно получать через API
+  version_source: "config"                # Допустимые значения: "api" | "config"
+  expected_version: "2025.05.175445501"
 
 db_path: "resources/domophone.db"
