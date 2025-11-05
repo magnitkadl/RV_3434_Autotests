@@ -71,7 +71,7 @@ class ApiClient:
             # Шаг 2: найдём метод, который отдаёт этот параметр
             # Ищем в api_method_params запись для (param_uuid, fw.id)
             cursor = conn.execute("""
-                SELECT amp.json_path, am.method_name, am.http_method
+                SELECT amp.json_path, am.method_url, am.http_method
                 FROM api_method_params amp
                 JOIN api_methods am ON amp.method_id = am.id
                 WHERE amp.param_uuid = ? AND amp.firmware_version_id = ?
@@ -82,14 +82,14 @@ class ApiClient:
             if not row:
                 raise ValueError(f"Параметр {param_uuid} не найден для прошивки {fw.version}")
 
-            json_path, method_name, http_method = row
+            json_path, method_url, http_method = row
 
             # Шаг 3: получим спецификацию метода (URL и т.д.)
             # ← Здесь тебе нужно сопоставить method_name с реальным URL.
             # Например, через маппинг или таблицу в БД (пока хардкод)
-            url = self._resolve_method_url(method_name)
+            url = self._resolve_method_url(method_url)
             if not url:
-                raise ValueError(f"Неизвестный метод API: {method_name}")
+                raise ValueError(f"Неизвестный метод API: {method_url}")
 
             # Шаг 4: вызовем API
             if http_method.upper() == "GET":
@@ -118,7 +118,7 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
-    def _resolve_method_url(self, method_name: str) -> str:
+    def _resolve_method_url(self, method_url: str) -> str:
         """
         Преобразует имя метода (из БД) в реальный URL.
         Позже можно вынести в БД или конфиг.
@@ -130,9 +130,9 @@ class ApiClient:
             "/api/v1/settings/audio/system": "/api/v1/settings/audio/system"
             # ... добавь все 200 методов или сделай шаблон
         }
-        path = method_to_url.get(method_name)
+        path = method_to_url.get(method_url)
         if not path:
-            raise ValueError(f"URL для метода '{method_name}' не настроен")
+            raise ValueError(f"URL для метода '{method_url}' не настроен")
         return f"{self.base_url}{path}"
 
     def close(self):
