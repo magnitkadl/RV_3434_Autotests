@@ -84,3 +84,7 @@ def get_api_method_params(
         WHERE method_id = ?
     """, (method_id,))
     return [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
+
+def get_positive_status():
+    # временная заглушка
+    return 204

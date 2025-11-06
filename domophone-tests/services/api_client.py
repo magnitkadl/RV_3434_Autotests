@@ -41,6 +41,18 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
+    def change_method(self, test_values) -> str:
+        """временная заглушка"""
+        resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = '{"sip_mic_sensitivity":15,"sip_volume":13,"sip_incoming_volume":13}')
+        resp.raise_for_status()
+        return resp
+
+    def get_method(self, method_name) -> str:
+        """временная заглушка"""
+        resp = self.session.get(f"{self.base_url}/api/v1/settings/audio/sip")
+        resp.raise_for_status()
+        return resp
+
     def _get_db(self):
         if self._db_conn is None:
             from core import get_db_connection

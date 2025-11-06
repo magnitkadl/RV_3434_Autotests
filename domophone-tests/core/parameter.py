@@ -35,26 +35,30 @@ def generate_correct_values_for_method(db, api_client, firmware_version, method_
     #Временно, потом надо переписать через generate_correct_value и вынести получение актуального значения/значений
     # в отдельную функцию, чтобы не дергать апи на каждый параметр
 
-    fw_model = get_firmware_by_version(db, firmware_version)
+    # fw_model = get_firmware_by_version(db, firmware_version)
+    #
+    # # Act
+    # params_from_db = get_parameters_for_method(db, method_name, fw_model.id)
+    # assert param_from_db is not None, f"Параметры для метода {method_name} не найденs для прошивки {current_fw_version}"
+    #
+    # actual_values = api_client.get_parameters(method_name, firmware_version)
+    # test_values = []
+    #
+    # for value in params_from_db:
+    #
+    #     if value.data_type_id == 1:  # допустим, 1 = int
+    #         min_value = int(value.min_value) if param_from_db.min_value else None
+    #         max_value = int(value.max_value) if param_from_db.max_value else None
+    #         test_value = random.randint(min_value, max_value - 1)
+    #
+    #         # Если оно >= исключаемого — сдвигаем на 1
+    #         if test_value >= actual_values[test_value]:
+    #             test_value += 1
+    #             test_values[value] = test_value
 
-    # Act
-    params_from_db = get_parameters_for_method(db, method_name, fw_model.id)
-    assert param_from_db is not None, f"Параметры для метода {method_name} не найденs для прошивки {current_fw_version}"
-
-    actual_values = api_client.get_parameters(method_name, firmware_version)
-    test_values = []
-
-    for value in params_from_db:
-
-        if value.data_type_id == 1:  # допустим, 1 = int
-            min_value = int(value.min_value) if param_from_db.min_value else None
-            max_value = int(value.max_value) if param_from_db.max_value else None
-            test_value = random.randint(min_value, max_value - 1)
-
-            # Если оно >= исключаемого — сдвигаем на 1
-            if test_value >= actual_values[test_value]:
-                test_value += 1
-                test_values[value] = test_value
-
-
+    test_values = {
+    "sip_mic_sensitivity": 15,
+    "sip_volume": 13,
+    "sip_incoming_volume": 13
+}
     return test_values

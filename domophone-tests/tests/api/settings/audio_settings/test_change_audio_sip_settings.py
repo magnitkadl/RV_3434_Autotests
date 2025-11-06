@@ -1,8 +1,9 @@
 # tests/api/settings/audio_settings/test_change_audio_sip_settings.py
 import pytest
 import allure
-#from core import get_parameter, get_firmware_by_version
-#from core import generate_correct_value
+from core import get_parameter, get_firmware_by_version
+from core import generate_correct_values_for_method
+from core import get_positive_status
 
 
 @allure.title("Позитивный сценарий проверки изменения аудио настроек SIP")
@@ -17,15 +18,15 @@ def test_positive_change_audio_sip_settings(db, api_client, firmware_version):
 
     # Act
     sent_values = generate_correct_values_for_method(db, api_client, firmware_version, method_name)
-    response = change_method(db, method_name, fw_model.id, sent_values)
+    response = api_client.change_method(sent_values)
     expected_status = get_positive_status()
 
     assert response.status_code == expected_status, f"Ожидался {expected_status}, получено {response.status_code}"
 
-    actual_values = api_client.get_parameters_for_method(method_name, firmware_version)
+    actual_values_response = api_client.get_method(method_name)
 
     # Assert
-    actual_values = response.body
+    actual_values = actual_values_response.json()
 
     with allure.step(f"Проверка работы апи метода {method_name}"):
         allure.attach(str(sent_values), "Отправленные значения", allure.attachment_type.TEXT)
