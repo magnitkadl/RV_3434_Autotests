@@ -13,22 +13,22 @@ def test_positive_change_audio_sip_settings(db, api_client, firmware_version):
     fw_model = get_firmware_by_version(db, firmware_version)
     #assert fw_model is not None, f"Прошивка {firmware_version} не найдена в БД"
 
-    param_uuid = "system_audio.volume"
+    method_name = "Change System Audio settings"
 
     # Act
-    param_from_db = get_parameter(db, param_uuid, fw_model.id)
-    assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {current_fw_version}"
+    sent_values = generate_correct_values_for_method(db, api_client, firmware_version, method_name)
+    response = change_method(db, method_name, fw_model.id, sent_values)
+    expected_status = get_positive_status()
 
-    actual_value = api_client.get_parameter(param_uuid, firmware_version)
+    assert response.status_code == expected_status, f"Ожидался {expected_status}, получено {response.status_code}"
+
+    actual_values = api_client.get_parameters_for_method(method_name, firmware_version)
 
     # Assert
-    expected_default = param_from_db.default_value
-    # Приведение типов — зависит от твоего API (может возвращать int, а в БД строка)
-    if param_from_db.data_type_id == 1:  # допустим, 1 = int
-        expected_default = int(expected_default) if expected_default else None
+    actual_values = response.body
 
-    with allure.step(f"Сравнение значения параметра {param_uuid}"):
-        allure.attach(str(expected_default), "Ожидаемое (из БД)", allure.attachment_type.TEXT)
-        allure.attach(str(actual_value), "Фактическое (из API)", allure.attachment_type.TEXT)
-        assert actual_value == expected_default, \
-            f"Значение параметра {param_uuid} не совпадает с дефолтом из БД"
+    with allure.step(f"Проверка работы апи метода {method_name}"):
+        allure.attach(str(sent_values), "Отправленные значения", allure.attachment_type.TEXT)
+        allure.attach(str(actual_values), "Полученные значения (из API)", allure.attachment_type.TEXT)
+        assert sent_values == actual_values, \
+            f"Значения параметров {different_values} отличаются от отправленных"

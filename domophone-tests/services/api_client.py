@@ -112,11 +112,11 @@ class ApiClient:
             except Exception as e:
                 raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
 
-    def _set_parameter(self, param_uuid: str, value: Any) -> None:
-        """Надо переписать на основе get_parameter"""
-        resp = self.session.patch(f"{self.base_url}/api/v1/version")
-        resp.raise_for_status()
-        return resp.json().get("firmware_version")
+    # def _set_parameter(self, param_uuid: str, value: Any) -> None:
+    #     """Надо переписать на основе get_parameter"""
+    #     resp = self.session.patch(f"{self.base_url}/api/v1/version")
+    #     resp.raise_for_status()
+    #     return resp.json().get("firmware_version")
 
     def _resolve_method_url(self, method_url: str) -> str:
         """
