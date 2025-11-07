@@ -77,12 +77,12 @@ def get_api_method_by_name_and_fw(
 
 
 def get_api_method_params(
-    conn: sqlite3.Connection, method_id: int
+    conn: sqlite3.Connection, method_id: int, firmware_version_id: int
 ) -> List[ApiMethodParam]:
     cursor = conn.execute("""
         SELECT * FROM api_method_params
-        WHERE method_id = ?
-    """, (method_id,))
+        WHERE method_id = ? AND firmware_version_id = ?
+    """, (method_id, firmware_version_id))
     return [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
 
 def get_positive_status():
