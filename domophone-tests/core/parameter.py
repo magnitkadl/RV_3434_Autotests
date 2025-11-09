@@ -4,7 +4,7 @@
 Содержит вспомогательные функции и логику (в будущем — миграции).
 Сейчас — просто переэкспорт из db для удобства.
 """
-
+import random
 from .db import get_parameter, get_api_method_params, get_firmware_by_version
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
@@ -30,31 +30,31 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
         return test_value
 
 
-def generate_correct_api_method_params(method_params, api_client):
+def generate_correct_api_method_params(method_params, api_client, firmware_version_id, method_name):
 
     ''' Временно, потом надо переписать через generate_correct_value и вынести получение актуального значения/значений
     в отдельную функцию, чтобы не дергать апи на каждый параметр '''
 
 
     # Act
-    actual_values = api_client.get_method(method_name, method_params.firmware_version_id).json()
-    test_values = []
+    actual_values = api_client.get_method(method_name, firmware_version_id).json()
+    test_values = {}
 
-    for value in method_params:
+    for parameter in method_params:
 
-        if value.data_type_id == 1:  # допустим, 1 = int
-            min_value = int(value.min_value) if param_from_db.min_value else None
-            max_value = int(value.max_value) if param_from_db.max_value else None
-            test_value = random.randint(min_value, max_value - 1)
+        if parameter.data_type_id == 1:  # допустим, 1 = int
+            min_value = int(parameter.min_value) if parameter.min_value else None
+            max_value = int(parameter.max_value) if parameter.max_value else None
+            test_value = random.randint(min_value + 1, max_value - 2)
 
             # Если оно >= исключаемого — сдвигаем на 1
-            if test_value >= actual_values[test_value]:
+            if test_value >= actual_values[parameter.json_path]:
                 test_value += 1
-                test_values[value] = test_value
+            test_values[parameter.json_path] = test_value
 
-    test_values = {
-    "sip_mic_sensitivity": 15,
-    "sip_volume": 13,
-    "sip_incoming_volume": 13
-}
+#     test_values = {
+#     "sip_mic_sensitivity": 15,
+#     "sip_volume": 13,
+#     "sip_incoming_volume": 13
+# }
     return test_values

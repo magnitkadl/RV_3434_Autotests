@@ -1,4 +1,6 @@
 # services/api_client.py
+import json
+
 import requests
 from typing import Any, Dict, Optional
 import yaml
@@ -41,9 +43,11 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
-    def change_method(self, test_values) -> str:
+    def change_method(self, method_name, test_values, firmware_version_id) -> str:
         """временная заглушка"""
-        resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = '{"sip_mic_sensitivity":15,"sip_volume":13,"sip_incoming_volume":13}')
+        test_values = json.dumps(test_values)
+
+        resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = str(test_values))
         resp.raise_for_status()
         return resp
 
@@ -132,6 +136,7 @@ class ApiClient:
 
     def get_parameters_for_method(self, method_name: str, firmware_version) -> Any:
         """
+        Отказался от этой функции, надо будет в будущем удалить
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
         """

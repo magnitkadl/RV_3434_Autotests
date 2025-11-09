@@ -1,8 +1,9 @@
 # tests/api/settings/audio_settings/test_change_audio_sip_settings.py
 import pytest
 import allure
-from core import get_parameter, get_firmware_by_version
-from core import generate_correct_values_for_method
+from deepdiff import DeepDiff
+from core import get_parameter, get_firmware_by_version, get_api_method_params
+from core import generate_correct_api_method_params
 from core import get_positive_status
 
 
@@ -16,13 +17,14 @@ def test_positive_change_audio_sip_settings(db, api_client, firmware_version):
     #assert fw_model is not None, f"Прошивка {firmware_version} не найдена в БД"
     method_name = "Change System Audio settings"
     method_params = get_api_method_params(db, method_name, fw_model.id)
-    sent_values = generate_correct_api_method_params(method_params, api_client, fw_model.id)
+    sent_values = generate_correct_api_method_params(method_params, api_client, fw_model.id, method_name)
     expected_status = get_positive_status(db, method_name, fw_model.id)
 
     # Act
     response = api_client.change_method(method_name, sent_values)
-    actual_values_response = api_client.get_method(method_name)
+    actual_values_response = api_client.get_method(method_name, fw_model.id)
     actual_values = actual_values_response.json()
+    different_values = DeepDiff(actual_values, sent_values)
 
     # Assert
     with allure.step(f"Проверка работы апи метода {method_name}"):

@@ -107,6 +107,13 @@ def get_api_method_params(
     """, (method_name, firmware_version_id))
     return [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
 
-def get_positive_status(method_name, firmware_version_id):
-    # временная заглушка
-    return 204
+def get_positive_status(
+    conn: sqlite3.Connection, method_name: str, firmware_version_id: int
+) -> List[ApiMethodParam]:
+        # получаем ожидаемый статус для позитивного теста
+        cursor = conn.execute("""
+            SELECT am.positive_status FROM api_methods am
+            WHERE method_name = ? AND firmware_version_id = ?
+        """, (method_name, firmware_version_id))
+        row = cursor.fetchone()
+        return row['positive_status'] if row else None

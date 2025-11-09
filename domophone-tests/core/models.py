@@ -68,7 +68,7 @@ class ApiMethodParam(BaseModel):
     allowed_values: Optional[str] = None
     unit: Optional[str] = None
 
-    model_config = ConfigDict(extra='ignore')  # на случай, если что-то лишнее пришло
+    # model_config = ConfigDict(extra='ignore')  # на случай, если что-то лишнее пришло
 
 
 class UiElementType(BaseModel):
