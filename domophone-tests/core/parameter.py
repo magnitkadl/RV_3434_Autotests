@@ -5,7 +5,7 @@
 Сейчас — просто переэкспорт из db для удобства.
 """
 
-from .db import get_parameter, get_api_method_params
+from .db import get_parameter, get_api_method_params, get_firmware_by_version
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
@@ -30,21 +30,17 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
         return test_value
 
 
-def generate_correct_values_for_method(db, api_client, firmware_version, method_name):
+def generate_correct_api_method_params(method_params, api_client):
 
     ''' Временно, потом надо переписать через generate_correct_value и вынести получение актуального значения/значений
     в отдельную функцию, чтобы не дергать апи на каждый параметр '''
 
-    fw_model = get_firmware_by_version(db, firmware_version)
 
     # Act
-    params_from_db = get_api_method_params(db, method_name, fw_model.id)
-    assert param_from_db is not None, f"Параметры для метода {method_name} не найдены для прошивки {current_fw_version}"
-
-    actual_values = api_client.get_parameters(method_name, firmware_version)
+    actual_values = api_client.get_method(method_name, method_params.firmware_version_id).json()
     test_values = []
 
-    for value in params_from_db:
+    for value in method_params:
 
         if value.data_type_id == 1:  # допустим, 1 = int
             min_value = int(value.min_value) if param_from_db.min_value else None

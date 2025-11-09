@@ -77,14 +77,36 @@ def get_api_method_by_name_and_fw(
 
 
 def get_api_method_params(
-    conn: sqlite3.Connection, method_id: int, firmware_version_id: int
+    conn: sqlite3.Connection, method_name: str, firmware_version_id: int
 ) -> List[ApiMethodParam]:
+    """Выдает список объектов класса ApiMethodParam"""
     cursor = conn.execute("""
-        SELECT * FROM api_method_params
-        WHERE method_id = ? AND firmware_version_id = ?
-    """, (method_id, firmware_version_id))
+        SELECT 
+            amp.json_path,
+            amp.is_required,
+            amp.in_request,
+            amp.condition_expr,
+            amp.example_value,
+            cp.param_uuid,
+            cp.location,
+            cp.name,
+            cp.migration_down,
+            cp.migration_up,
+            cp.description,
+            cp.data_type_id,
+            cp.default_value,
+            cp.format_hint,
+            cp.min_value,
+            cp.max_value,
+            cp.allowed_values,
+            cp.unit
+        FROM api_method_params amp
+        JOIN api_methods am ON amp.method_id = am.id
+        JOIN config_parameters cp ON amp.param_uuid = cp.param_uuid
+        WHERE am.method_name = ? AND amp.firmware_version_id = ?
+    """, (method_name, firmware_version_id))
     return [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
 
-def get_positive_status():
+def get_positive_status(method_name, firmware_version_id):
     # временная заглушка
     return 204

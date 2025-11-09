@@ -45,15 +45,30 @@ class ApiMethod(BaseModel):
 
 
 class ApiMethodParam(BaseModel):
-    id: int
-    method_id: int
-    param_uuid: str
-    firmware_version_id: int
+
+    # Поля из api_method_params
     json_path: str
     is_required: bool = True
     in_request: bool = True
     condition_expr: Optional[str] = None
     example_value: Optional[str] = None
+
+    # Поля из config_parameters
+    param_uuid: str
+    location: str
+    name: str
+    migration_down: Optional[str] = None
+    migration_up: Optional[str] = None
+    description: Optional[str] = None
+    data_type_id: int
+    default_value: Optional[str] = None
+    format_hint: Optional[str] = None
+    min_value: Optional[int] = None
+    max_value: Optional[int] = None
+    allowed_values: Optional[str] = None
+    unit: Optional[str] = None
+
+    model_config = ConfigDict(extra='ignore')  # на случай, если что-то лишнее пришло
 
 
 class UiElementType(BaseModel):

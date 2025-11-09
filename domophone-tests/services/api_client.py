@@ -47,7 +47,7 @@ class ApiClient:
         resp.raise_for_status()
         return resp
 
-    def get_method(self, method_name) -> str:
+    def get_method(self, method_name, fw_id) -> str:
         """временная заглушка"""
         resp = self.session.get(f"{self.base_url}/api/v1/settings/audio/sip")
         resp.raise_for_status()
@@ -129,6 +129,67 @@ class ApiClient:
     #     resp = self.session.patch(f"{self.base_url}/api/v1/version")
     #     resp.raise_for_status()
     #     return resp.json().get("firmware_version")
+
+    def get_parameters_for_method(self, method_name: str, firmware_version) -> Any:
+        """
+        Получает значение параметра через правильный API-метод и JSONPath,
+        используя метаданные из БД.
+        """
+        self._ensure_db_path()
+        with get_db_connection(self._db_path) as conn:
+
+            db = self._get_db()
+
+            # Шаг 1: найдём текущую прошивку устройства
+            #current_fw_version = self.get_firmware_version()  # ← должен работать!
+            current_fw_version = firmware_version
+            fw = get_firmware_by_version(conn, current_fw_version)
+            # if not fw:
+            #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
+
+            # Шаг 2: найдём метод, который отдаёт этот параметр
+            # Ищем в api_method_params запись для (param_uuid, fw.id)
+            cursor = conn.execute("""
+                SELECT amp.json_path, cp.*
+                FROM api_method_params amp
+                JOIN api_methods am ON amp.method_id = am.id
+                JOIN config_parameters cp ON amp.param_uuid = cp.param_uuid
+                WHERE am.method_name = ? AND amp.firmware_version_id = ?
+            """, (method_name, fw.id))
+
+            row = cursor.fetchall()
+            if not row:
+                raise ValueError(f"Параметры метода {method_name} не найден для прошивки {fw.version}")
+
+            # json_path, method_url, http_method = row
+
+            # Шаг 3: получим спецификацию метода (URL и т.д.)
+            # ← Здесь тебе нужно сопоставить method_name с реальным URL.
+            # Например, через маппинг или таблицу в БД (пока хардкод)
+            url = self._resolve_method_url(method_url)
+            if not url:
+                raise ValueError(f"Неизвестный метод API: {method_url}")
+
+            # Шаг 4: вызовем API
+            if http_method.upper() == "GET":
+                resp = self.session.get(url)
+            elif http_method.upper() == "POST":
+                resp = self.session.post(url)
+            else:
+                raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
+
+            resp.raise_for_status()
+            response_data = resp.json()
+
+            # Шаг 5: извлечём значение по JSONPath
+            try:
+                jsonpath_expr = parse(json_path)
+                matches = [match.value for match in jsonpath_expr.find(response_data)]
+                if not matches:
+                    raise ValueError(f"JSONPath {json_path} не нашёл значение в ответе")
+                return matches[0]  # берем первое совпадение
+            except Exception as e:
+                raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
 
     def _resolve_method_url(self, method_url: str) -> str:
         """
