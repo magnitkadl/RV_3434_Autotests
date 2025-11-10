@@ -21,7 +21,7 @@ def test_positive_change_audio_sip_settings(db, api_client, firmware_version):
     expected_status = get_positive_status(db, method_name, fw_model.id)
 
     # Act
-    response = api_client.change_method(method_name, sent_values)
+    response = api_client.change_method(method_name, sent_values, fw_model.id)
     actual_values_response = api_client.get_method(method_name, fw_model.id)
     actual_values = actual_values_response.json()
     different_values = DeepDiff(actual_values, sent_values)
