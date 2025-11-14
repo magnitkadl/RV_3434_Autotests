@@ -75,6 +75,19 @@ def get_api_method_by_name_and_fw(
     row = cursor.fetchone()
     return _row_to_model(row, ApiMethod) if row else None
 
+def get_method_properties(
+    conn: sqlite3.Connection, method_name: str, firmware_version_id: int
+) -> Optional[ApiMethod]:
+    """Дублирует предыдущую функцию. Её потом убрать для повсеместного перехода на эту
+    функция возвращает параметры для метода"""
+    cursor = conn.execute("""
+        SELECT am.id, am.method_name, am.http_method, am.firmware_version_id, 
+                                            am.method_url, am.positive_status  FROM api_methods am
+        WHERE method_name = ? AND firmware_version_id = ?
+    """, (method_name, firmware_version_id))
+    row = cursor.fetchone()
+    return _row_to_model(row, ApiMethod) if row else None
+
 
 def get_api_method_params(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
@@ -110,10 +123,11 @@ def get_api_method_params(
 def get_positive_status(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
 ) -> List[ApiMethodParam]:
-        # получаем ожидаемый статус для позитивного теста
-        cursor = conn.execute("""
-            SELECT am.positive_status FROM api_methods am
-            WHERE method_name = ? AND firmware_version_id = ?
-        """, (method_name, firmware_version_id))
-        row = cursor.fetchone()
-        return row['positive_status'] if row else None
+    """Временно, потом перейти на get_method_properties"""
+    # получаем ожидаемый статус для позитивного теста
+    cursor = conn.execute("""
+        SELECT am.positive_status FROM api_methods am
+        WHERE method_name = ? AND firmware_version_id = ?
+    """, (method_name, firmware_version_id))
+    row = cursor.fetchone()
+    return row['positive_status'] if row else None

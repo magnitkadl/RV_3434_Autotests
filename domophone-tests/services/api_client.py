@@ -5,7 +5,7 @@ import requests
 from typing import Any, Dict, Optional
 import yaml
 import os
-from core import get_parameter, get_firmware_by_version, get_db_connection
+from core import get_parameter, get_firmware_by_version, get_db_connection, get_method_properties
 from jsonpath_ng import parse
 
 
@@ -43,11 +43,13 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
-    def change_method(self, method_name, test_values, firmware_version_id) -> str:
+    def change_method(self, db, method_name, test_values, firmware_version_id) -> str:
         """временная заглушка"""
         test_values = json.dumps(test_values)
-
-        resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = str(test_values))
+        method_params = get_method_properties(db, method_name, firmware_version_id)
+        resp = self.session.request(method=method_params.http_method, url=f"{self.base_url}{method_params.method_url}",
+                                    data=str(test_values))
+        # resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = str(test_values))
         resp.raise_for_status()
         return resp
 

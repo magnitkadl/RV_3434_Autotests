@@ -42,6 +42,8 @@ class ApiMethod(BaseModel):
     method_name: str
     http_method: str
     firmware_version_id: int
+    method_url: str
+    positive_status: int
 
 
 class ApiMethodParam(BaseModel):
