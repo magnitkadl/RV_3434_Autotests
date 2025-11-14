@@ -30,14 +30,14 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
         return test_value
 
 
-def generate_correct_api_method_params(method_params, api_client, firmware_version_id, method_name):
+def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
 
     ''' Временно, потом надо переписать через generate_correct_value и вынести получение актуального значения/значений
     в отдельную функцию, чтобы не дергать апи на каждый параметр '''
 
 
     # Act
-    actual_values = api_client.get_method(method_name, firmware_version_id).json()
+    actual_values = api_client.get_method(db, "Get Audio Sip settings", firmware_version_id).json()
     test_values = {}
 
     for parameter in method_params:

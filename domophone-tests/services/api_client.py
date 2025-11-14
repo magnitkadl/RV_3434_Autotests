@@ -44,7 +44,7 @@ class ApiClient:
         return resp.json().get("firmware_version")
 
     def change_method(self, db, method_name, test_values, firmware_version_id) -> str:
-        """временная заглушка"""
+        """получает url метода и его тип, а дальше выполняет метод"""
         test_values = json.dumps(test_values)
         method_params = get_method_properties(db, method_name, firmware_version_id)
         resp = self.session.request(method=method_params.http_method, url=f"{self.base_url}{method_params.method_url}",
@@ -53,9 +53,10 @@ class ApiClient:
         resp.raise_for_status()
         return resp
 
-    def get_method(self, method_name, fw_id) -> str:
+    def get_method(self, db, method_name, firmware_version_id) -> str:
         """временная заглушка"""
-        resp = self.session.get(f"{self.base_url}/api/v1/settings/audio/sip")
+        method_params = get_method_properties(db, "Get Audio Sip settings", firmware_version_id)
+        resp = self.session.request(method=method_params.http_method, url=f"{self.base_url}{method_params.method_url}")
         resp.raise_for_status()
         return resp
 
