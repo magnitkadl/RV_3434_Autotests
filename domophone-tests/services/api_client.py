@@ -5,7 +5,7 @@ import requests
 from typing import Any, Dict, Optional
 import yaml
 import os
-from core import get_parameter, get_firmware_by_version, get_db_connection, get_method_properties
+from core import get_parameter, get_firmware_by_version, get_db_connection, get_method_info
 from jsonpath_ng import parse
 
 
@@ -43,20 +43,12 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
-    def change_method(self, db, method_name, test_values, firmware_version_id) -> str:
+    def running_method(self, db, method_name, firmware_version_id, test_values=None) -> str:
         """получает url метода и его тип, а дальше выполняет метод"""
-        test_values = json.dumps(test_values)
-        method_params = get_method_properties(db, method_name, firmware_version_id)
-        resp = self.session.request(method=method_params.http_method, url=f"{self.base_url}{method_params.method_url}",
-                                    data=str(test_values))
-        # resp = self.session.patch(f"{self.base_url}/api/v1/settings/audio/sip", data = str(test_values))
-        resp.raise_for_status()
-        return resp
-
-    def get_method(self, db, method_name, firmware_version_id) -> str:
-        """временная заглушка"""
-        method_params = get_method_properties(db, "Get Audio Sip settings", firmware_version_id)
-        resp = self.session.request(method=method_params.http_method, url=f"{self.base_url}{method_params.method_url}")
+        method_info = get_method_info(db, method_name, firmware_version_id)
+        test_values = json.dumps(test_values) if test_values is not None else None
+        resp = self.session.request(method=method_info.http_method, url=f"{self.base_url}{method_info.method_url}",
+                                    data=str(test_values) if test_values is not None else None)
         resp.raise_for_status()
         return resp
 

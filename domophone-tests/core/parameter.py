@@ -5,7 +5,7 @@
 Сейчас — просто переэкспорт из db для удобства.
 """
 import random
-from .db import get_parameter, get_api_method_params, get_firmware_by_version
+from .db import get_parameter, get_api_method_params, get_firmware_by_version, get_method_info
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
@@ -32,12 +32,13 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
 
-    ''' Временно, потом надо переписать через generate_correct_value и вынести получение актуального значения/значений
-    в отдельную функцию, чтобы не дергать апи на каждый параметр '''
+    ''' Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее с текущим
+        и не попадающее на границы (границы будут проверяться отдельным тестом) '''
 
+    method_info = get_method_info(db, method_name, firmware_version_id)
 
     # Act
-    actual_values = api_client.get_method(db, "Get Audio Sip settings", firmware_version_id).json()
+    actual_values = api_client.running_method(db, method_info.control_method_name, firmware_version_id).json()
     test_values = {}
 
     for parameter in method_params:
@@ -52,9 +53,4 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
                 test_value += 1
             test_values[parameter.json_path] = test_value
 
-#     test_values = {
-#     "sip_mic_sensitivity": 15,
-#     "sip_volume": 13,
-#     "sip_incoming_volume": 13
-# }
     return test_values

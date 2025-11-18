@@ -44,6 +44,7 @@ class ApiMethod(BaseModel):
     firmware_version_id: int
     method_url: str
     positive_status: int
+    control_method_name: str
 
 
 class ApiMethodParam(BaseModel):
