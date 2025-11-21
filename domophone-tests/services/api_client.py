@@ -39,16 +39,19 @@ class ApiClient:
 
     def get_firmware_version(self) -> str:
         """Пример: получение версии прошивки через /api/v1/version"""
-        resp = self.session.get(f"{self.base_url}/api/v1/version")
+        resp = self.session.get(f"{self.base_url}/api/v1/version", timeout=10)
         resp.raise_for_status()
         return resp.json().get("firmware_version")
 
     def running_method(self, db, method_name, firmware_version_id, test_values=None) -> str:
         """получает url метода и его тип, а дальше выполняет метод"""
         method_info = get_method_info(db, method_name, firmware_version_id)
-        test_values = json.dumps(test_values) if test_values is not None else None
-        resp = self.session.request(method=method_info.http_method, url=f"{self.base_url}{method_info.method_url}",
-                                    data=str(test_values) if test_values is not None else None)
+        resp = self.session.request(
+            method=method_info.http_method,
+            url=f"{self.base_url}{method_info.method_url}",
+            json=test_values if test_values is not None else None,
+            timeout=10,
+        )
         resp.raise_for_status()
         return resp
 
@@ -104,9 +107,9 @@ class ApiClient:
 
             # Шаг 4: вызовем API
             if http_method.upper() == "GET":
-                resp = self.session.get(url)
+                resp = self.session.get(url, timeout=10)
             elif http_method.upper() == "POST":
-                resp = self.session.post(url)
+                resp = self.session.post(url, timeout=10)
             else:
                 raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
 
@@ -205,7 +208,7 @@ class ApiClient:
         }
         path = method_to_url.get(method_url)
         if not path:
-            raise ValueError(f"URL для метода '{method_url}' не настроен")
+            return f"{self.base_url}{method_url}"
         return f"{self.base_url}{path}"
 
     def close(self):

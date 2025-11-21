@@ -16,3 +16,4 @@ schedule==1.2.2
 tomli==2.2.1
 typing_extensions==4.15.0
 urllib3==2.5.0
+deepdiff==7.0.1

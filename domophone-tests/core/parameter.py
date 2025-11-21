@@ -5,6 +5,7 @@
 Сейчас — просто переэкспорт из db для удобства.
 """
 import random
+from jsonpath_ng import parse
 from .db import get_parameter, get_api_method_params, get_firmware_by_version, get_method_info
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
@@ -13,21 +14,31 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
     # Act
     param_from_db = get_parameter(db, param_uuid, fw_model.id)
-    assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {current_fw_version}"
+    assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {firmware_version}"
 
     actual_value = api_client.get_parameter(param_uuid, firmware_version)
 
 
-    if param_from_db.data_type_id == 1:  # допустим, 1 = int
-        min_value = int(param_from_db.min_value) if param_from_db.min_value else None
-        max_value = int(param_from_db.max_value) if param_from_db.max_value else None
-        test_value = random.randint(min_value, max_value - 1)
-
-        # Если оно >= исключаемого — сдвигаем на 1
-        if test_value >= actual_value:
-            test_value += 1
-
-        return test_value
+    if param_from_db.data_type_id == 1:
+        min_value = int(param_from_db.min_value) if param_from_db.min_value is not None else None
+        max_value = int(param_from_db.max_value) if param_from_db.max_value is not None else None
+        exclude = actual_value
+        if min_value is not None and max_value is not None and max_value - min_value >= 2:
+            low = min_value + 1
+            high = max_value - 1
+            test_value = random.randint(low, high)
+            if test_value == exclude:
+                test_value = low if exclude != low else high
+            return test_value
+        if min_value is not None and max_value is not None:
+            return min_value if exclude != min_value else max_value
+        if min_value is not None:
+            candidate = min_value + 1
+            return candidate if candidate != exclude else min_value
+        if max_value is not None:
+            candidate = max_value - 1
+            return candidate if candidate != exclude else max_value
+        return exclude + 1 if isinstance(exclude, int) else 1
 
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
@@ -43,14 +54,46 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
 
     for parameter in method_params:
 
-        if parameter.data_type_id == 1:  # допустим, 1 = int
-            min_value = int(parameter.min_value) if parameter.min_value else None
-            max_value = int(parameter.max_value) if parameter.max_value else None
-            test_value = random.randint(min_value + 1, max_value - 2)
-
-            # Если оно >= исключаемого — сдвигаем на 1
-            if test_value >= actual_values[parameter.json_path]:
-                test_value += 1
-            test_values[parameter.json_path] = test_value
+        if parameter.data_type_id == 1:
+            min_value = int(parameter.min_value) if parameter.min_value is not None else None
+            max_value = int(parameter.max_value) if parameter.max_value is not None else None
+            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
+            exclude = matches[0] if matches else None
+            if min_value is not None and max_value is not None and max_value - min_value >= 2:
+                low = min_value + 1
+                high = max_value - 1
+                candidates = list(range(low, high + 1))
+                if exclude is not None and exclude in candidates:
+                    candidates.remove(exclude)
+                if candidates:
+                    test_value = random.choice(candidates)
+                else:
+                    test_value = low
+            elif min_value is not None and max_value is not None:
+                test_value = min_value if exclude != min_value else max_value
+            elif min_value is not None:
+                candidate = min_value + 1
+                test_value = candidate if exclude != candidate else min_value
+            elif max_value is not None:
+                candidate = max_value - 1
+                test_value = candidate if exclude != candidate else max_value
+            else:
+                test_value = (exclude + 1) if isinstance(exclude, int) else 1
+            _set_by_path(test_values, parameter.json_path, test_value)
 
     return test_values
+
+def _set_by_path(target, path, value):
+    p = path.strip()
+    if p.startswith('$.'):
+        p = p[2:]
+    keys = [k for k in p.replace('[', '.').replace(']', '').split('.') if k]
+    cur = target
+    for i, k in enumerate(keys):
+        is_last = i == len(keys) - 1
+        if not is_last:
+            if k not in cur or not isinstance(cur.get(k), dict):
+                cur[k] = {}
+            cur = cur[k]
+        else:
+            cur[k] = value

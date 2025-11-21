@@ -3,3 +3,4 @@ pytest
 requests
 jsonpath-ng
 allure-pytest
+deepdiff
