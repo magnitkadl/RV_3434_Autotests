@@ -26,9 +26,14 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
         if min_value is not None and max_value is not None and max_value - min_value >= 2:
             low = min_value + 1
             high = max_value - 1
-            test_value = random.randint(low, high)
-            if test_value == exclude:
-                test_value = low if exclude != low else high
+            if exclude is not None and low <= exclude <= high and (high - low) >= 1:
+                n = high - low + 1
+                k = random.randint(0, n - 2)
+                test_value = low + k
+                if test_value >= exclude:
+                    test_value += 1
+            else:
+                test_value = random.randint(low, high)
             return test_value
         if min_value is not None and max_value is not None:
             return min_value if exclude != min_value else max_value
@@ -62,13 +67,14 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
             if min_value is not None and max_value is not None and max_value - min_value >= 2:
                 low = min_value + 1
                 high = max_value - 1
-                candidates = list(range(low, high + 1))
-                if exclude is not None and exclude in candidates:
-                    candidates.remove(exclude)
-                if candidates:
-                    test_value = random.choice(candidates)
+                if exclude is not None and low <= exclude <= high and (high - low) >= 1:
+                    n = high - low + 1
+                    k = random.randint(0, n - 2)
+                    test_value = low + k
+                    if test_value >= exclude:
+                        test_value += 1
                 else:
-                    test_value = low
+                    test_value = random.randint(low, high)
             elif min_value is not None and max_value is not None:
                 test_value = min_value if exclude != min_value else max_value
             elif min_value is not None:
@@ -84,6 +90,8 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
     return test_values
 
 def _set_by_path(target, path, value):
+    """Надо будет разобраться зачем так сложно и переделать
+        функция правильно извлекает путь к параметру в методе"""
     p = path.strip()
     if p.startswith('$.'):
         p = p[2:]
