@@ -2,7 +2,7 @@
 import pytest
 import allure
 from deepdiff import DeepDiff
-from core import get_parameter, get_firmware_by_version, get_api_method_params
+from core import get_parameter, get_firmware_by_version, get_api_method_params, get_method_info
 from core import generate_correct_api_method_params
 from core import get_positive_status
 
