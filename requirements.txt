@@ -18,3 +18,6 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 deepdiff==7.0.1
 setuptools
+pydantic==2.11.5
+jsonpath-ng==1.7.0
+allure-pytest==2.15.0
