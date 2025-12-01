@@ -85,54 +85,54 @@ class ApiClient:
         self._ensure_db_conn()
         conn = self.db_conn
 
-            # Шаг 1: найдём текущую прошивку устройства
-            #current_fw_version = self.get_firmware_version()  # ← должен работать!
-            current_fw_version = firmware_version
-            fw = get_firmware_by_version(conn, current_fw_version)
-            # if not fw:
-            #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
+        # Шаг 1: найдём текущую прошивку устройства
+        # current_fw_version = self.get_firmware_version()  # ← должен работать!
+        current_fw_version = firmware_version
+        fw = get_firmware_by_version(conn, current_fw_version)
+        # if not fw:
+        #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
 
-            # Шаг 2: найдём метод, который отдаёт этот параметр
-            # Ищем в api_method_params запись для (param_uuid, fw.id)
-            cursor = conn.execute("""
-                SELECT amp.json_path, am.method_url, am.http_method
-                FROM api_method_params amp
-                JOIN api_methods am ON amp.method_id = am.id
-                WHERE amp.param_uuid = ? AND amp.firmware_version_id = ?
-                LIMIT 1
-            """, (param_uuid, fw.id))
+        # Шаг 2: найдём метод, который отдаёт этот параметр
+        # Ищем в api_method_params запись для (param_uuid, fw.id)
+        cursor = conn.execute("""
+            SELECT amp.json_path, am.method_url, am.http_method
+            FROM api_method_params amp
+            JOIN api_methods am ON amp.method_id = am.id
+            WHERE amp.param_uuid = ? AND amp.firmware_version_id = ?
+            LIMIT 1
+        """, (param_uuid, fw.id))
 
-            row = cursor.fetchone()
-            if not row:
-                raise ValueError(f"Параметр {param_uuid} не найден для прошивки {fw.version}")
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Параметр {param_uuid} не найден для прошивки {fw.version}")
 
-            json_path, method_url, http_method = row
+        json_path, method_url, http_method = row
 
-            # Шаг 3: получим спецификацию метода (URL и т.д.)
-            # ← Здесь тебе нужно сопоставить method_name с реальным URL.
-            # Например, через маппинг или таблицу в БД (пока хардкод)
-            url = self._resolve_method_url(method_url)
-            if not url:
-                raise ValueError(f"Неизвестный метод API: {method_url}")
+        # Шаг 3: получим спецификацию метода (URL и т.д.)
+        # ← Здесь тебе нужно сопоставить method_name с реальным URL.
+        # Например, через маппинг или таблицу в БД (пока хардкод)
+        url = self._resolve_method_url(method_url)
+        if not url:
+            raise ValueError(f"Неизвестный метод API: {method_url}")
 
-            # Шаг 4: вызовем API
-            t0 = time.monotonic()
-            method = http_method.upper()
-            resp = self.session.request(method=method, url=url, timeout=self.timeout)
+        # Шаг 4: вызовем API
+        t0 = time.monotonic()
+        method = http_method.upper()
+        resp = self.session.request(method=method, url=url, timeout=self.timeout)
 
-            resp.raise_for_status()
-            response_data = resp.json()
-            logger.info("{} {} -> {} in {:.3f}s", http_method, url, resp.status_code, time.monotonic()-t0)
+        resp.raise_for_status()
+        response_data = resp.json()
+        logger.info("{} {} -> {} in {:.3f}s", http_method, url, resp.status_code, time.monotonic() - t0)
 
-            # Шаг 5: извлечём значение по JSONPath
-            try:
-                jsonpath_expr = parse(json_path)
-                matches = [match.value for match in jsonpath_expr.find(response_data)]
-                if not matches:
-                    raise ValueError(f"JSONPath {json_path} не нашёл значение в ответе")
-                return matches[0]  # берем первое совпадение
-            except Exception as e:
-                raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
+        # Шаг 5: извлечём значение по JSONPath
+        try:
+            jsonpath_expr = parse(json_path)
+            matches = [match.value for match in jsonpath_expr.find(response_data)]
+            if not matches:
+                raise ValueError(f"JSONPath {json_path} не нашёл значение в ответе")
+            return matches[0]  # берем первое совпадение
+        except Exception as e:
+            raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
 
     # def _set_parameter(self, param_uuid: str, value: Any) -> None:
     #     """Надо переписать на основе get_parameter"""
@@ -149,16 +149,16 @@ class ApiClient:
         self._ensure_db_conn()
         conn = self.db_conn
 
-            # Шаг 1: найдём текущую прошивку устройства
-            #current_fw_version = self.get_firmware_version()  # ← должен работать!
-            current_fw_version = firmware_version
-            fw = get_firmware_by_version(conn, current_fw_version)
-            # if not fw:
-            #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
+        # Шаг 1: найдём текущую прошивку устройства
+        # current_fw_version = self.get_firmware_version()  # ← должен работать!
+        current_fw_version = firmware_version
+        fw = get_firmware_by_version(conn, current_fw_version)
+        # if not fw:
+        #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
 
-            # Шаг 2: найдём метод, который отдаёт этот параметр
-            # Ищем в api_method_params запись для (param_uuid, fw.id)
-            cursor = conn.execute("""
+        # Шаг 2: найдём метод, который отдаёт этот параметр
+        # Ищем в api_method_params запись для (param_uuid, fw.id)
+        cursor = conn.execute("""
                 SELECT amp.json_path, cp.*
                 FROM api_method_params amp
                 JOIN api_methods am ON amp.method_id = am.id
@@ -166,39 +166,39 @@ class ApiClient:
                 WHERE am.method_name = ? AND amp.firmware_version_id = ?
             """, (method_name, fw.id))
 
-            row = cursor.fetchall()
-            if not row:
-                raise ValueError(f"Параметры метода {method_name} не найден для прошивки {fw.version}")
+        row = cursor.fetchall()
+        if not row:
+            raise ValueError(f"Параметры метода {method_name} не найден для прошивки {fw.version}")
 
-            # json_path, method_url, http_method = row
+        # json_path, method_url, http_method = row
 
-            # Шаг 3: получим спецификацию метода (URL и т.д.)
-            # ← Здесь тебе нужно сопоставить method_name с реальным URL.
-            # Например, через маппинг или таблицу в БД (пока хардкод)
-            url = self._resolve_method_url(method_url)
-            if not url:
-                raise ValueError(f"Неизвестный метод API: {method_url}")
+        # Шаг 3: получим спецификацию метода (URL и т.д.)
+        # ← Здесь тебе нужно сопоставить method_name с реальным URL.
+        # Например, через маппинг или таблицу в БД (пока хардкод)
+        url = self._resolve_method_url(method_url)
+        if not url:
+            raise ValueError(f"Неизвестный метод API: {method_url}")
 
-            # Шаг 4: вызовем API
-            if http_method.upper() == "GET":
-                resp = self.session.get(url)
-            elif http_method.upper() == "POST":
-                resp = self.session.post(url)
-            else:
-                raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
+        # Шаг 4: вызовем API
+        if http_method.upper() == "GET":
+            resp = self.session.get(url)
+        elif http_method.upper() == "POST":
+            resp = self.session.post(url)
+        else:
+            raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
 
-            resp.raise_for_status()
-            response_data = resp.json()
+        resp.raise_for_status()
+        response_data = resp.json()
 
-            # Шаг 5: извлечём значение по JSONPath
-            try:
-                jsonpath_expr = parse(json_path)
-                matches = [match.value for match in jsonpath_expr.find(response_data)]
-                if not matches:
-                    raise ValueError(f"JSONPath {json_path} не нашёл значение в ответе")
-                return matches[0]  # берем первое совпадение
-            except Exception as e:
-                raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
+        # Шаг 5: извлечём значение по JSONPath
+        try:
+            jsonpath_expr = parse(json_path)
+            matches = [match.value for match in jsonpath_expr.find(response_data)]
+            if not matches:
+                raise ValueError(f"JSONPath {json_path} не нашёл значение в ответе")
+            return matches[0]  # берем первое совпадение
+        except Exception as e:
+            raise ValueError(f"Ошибка при извлечении по JSONPath {json_path}: {e}")
 
     def _resolve_method_url(self, method_url: str) -> str:
         """
