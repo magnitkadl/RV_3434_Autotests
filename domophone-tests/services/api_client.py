@@ -1,16 +1,17 @@
 # services/api_client.py
 import json
-
+import time
 import requests
 from typing import Any, Dict, Optional
 import yaml
 import os
+from loguru import logger
 from core import get_parameter, get_firmware_by_version, get_db_connection, get_method_info
 from jsonpath_ng import parse
 
 
 class ApiClient:
-    def __init__(self, config_path: str = "config/test_config.yaml"):
+    def __init__(self, config_path: str = "config/test_config.yaml", db_connection=None, timeout: Optional[int] = None):
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
 
@@ -27,32 +28,43 @@ class ApiClient:
         self.session = requests.Session()
         self.session.auth = self.auth
         self.session.timeout = 10
-        self._db_conn = None  # будем лениво открывать соединение
-        self._db_path = None
+        self.db_conn = db_connection
+        self.db_path = self.config.get("db_path")
+        self.timeout = timeout if timeout is not None else int(self.config.get("http_timeout", 10))
 
-    def _ensure_db_path(self):
-        if self._db_path is None:
-            import yaml
-            with open("config/test_config.yaml") as f:
-                cfg = yaml.safe_load(f)
-            self._db_path = cfg["db_path"]
+        # без автоматических ретраев: тесты должны видеть исходную ошибку
+
+    def _ensure_db_conn(self):
+        if self.db_conn is None:
+            self.db_conn = get_db_connection(self.db_path)
 
     def get_firmware_version(self) -> str:
         """Пример: получение версии прошивки через /api/v1/version"""
-        resp = self.session.get(f"{self.base_url}/api/v1/version", timeout=10)
+        t0 = time.monotonic()
+        resp = self.session.get(f"{self.base_url}/api/v1/version", timeout=self.timeout)
         resp.raise_for_status()
+        logger.info("GET {} -> {} in {:.3f}s", f"{self.base_url}/api/v1/version", resp.status_code, time.monotonic()-t0)
         return resp.json().get("firmware_version")
 
     def running_method(self, db, method_name, firmware_version_id, test_values=None) -> str:
         """получает url метода и его тип, а дальше выполняет метод"""
         method_info = get_method_info(db, method_name, firmware_version_id)
-        resp = self.session.request(
-            method=method_info.http_method,
-            url=f"{self.base_url}{method_info.method_url}",
-            json=test_values if test_values is not None else None,
-            timeout=10,
-        )
+        t0 = time.monotonic()
+        url = f"{self.base_url}{method_info.method_url}"
+        method = method_info.http_method.upper()
+        payload = test_values if (test_values is not None and method in {"POST", "PUT", "PATCH"}) else None
+        try:
+            resp = self.session.request(
+                method=method,
+                url=url,
+                json=payload,
+                timeout=self.timeout,
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            logger.error("{} {} failed: {}", method, url, e)
+            raise
         resp.raise_for_status()
+        logger.info("{} {} -> {} in {:.3f}s", method, url, resp.status_code, time.monotonic()-t0)
         return resp
 
     def _get_db(self):
@@ -70,10 +82,8 @@ class ApiClient:
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
         """
-        self._ensure_db_path()
-        with get_db_connection(self._db_path) as conn:
-
-            db = self._get_db()
+        self._ensure_db_conn()
+        conn = self.db_conn
 
             # Шаг 1: найдём текущую прошивку устройства
             #current_fw_version = self.get_firmware_version()  # ← должен работать!
@@ -106,15 +116,13 @@ class ApiClient:
                 raise ValueError(f"Неизвестный метод API: {method_url}")
 
             # Шаг 4: вызовем API
-            if http_method.upper() == "GET":
-                resp = self.session.get(url, timeout=10)
-            elif http_method.upper() == "POST":
-                resp = self.session.post(url, timeout=10)
-            else:
-                raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
+            t0 = time.monotonic()
+            method = http_method.upper()
+            resp = self.session.request(method=method, url=url, timeout=self.timeout)
 
             resp.raise_for_status()
             response_data = resp.json()
+            logger.info("{} {} -> {} in {:.3f}s", http_method, url, resp.status_code, time.monotonic()-t0)
 
             # Шаг 5: извлечём значение по JSONPath
             try:
@@ -138,10 +146,8 @@ class ApiClient:
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
         """
-        self._ensure_db_path()
-        with get_db_connection(self._db_path) as conn:
-
-            db = self._get_db()
+        self._ensure_db_conn()
+        conn = self.db_conn
 
             # Шаг 1: найдём текущую прошивку устройства
             #current_fw_version = self.get_firmware_version()  # ← должен работать!

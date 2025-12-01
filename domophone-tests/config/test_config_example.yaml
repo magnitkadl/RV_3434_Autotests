@@ -11,3 +11,4 @@ firmware:
   expected_version: "2025.05.175445501"
 
 db_path: "resources/domophone.db"
+http_timeout: 10

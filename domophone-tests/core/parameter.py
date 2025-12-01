@@ -6,6 +6,7 @@
 """
 import random
 from jsonpath_ng import parse
+import re
 from .db import get_parameter, get_api_method_params, get_firmware_by_version, get_method_info
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
@@ -90,18 +91,44 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
     return test_values
 
 def _set_by_path(target, path, value):
-    """Надо будет разобраться зачем так сложно и переделать
-        функция правильно извлекает путь к параметру в методе"""
     p = path.strip()
     if p.startswith('$.'):
         p = p[2:]
-    keys = [k for k in p.replace('[', '.').replace(']', '').split('.') if k]
-    cur = target
-    for i, k in enumerate(keys):
-        is_last = i == len(keys) - 1
-        if not is_last:
-            if k not in cur or not isinstance(cur.get(k), dict):
-                cur[k] = {}
-            cur = cur[k]
+    tokens = []
+    for m in re.finditer(r'([^.\[\]]+)|\[(\d+)\]', p):
+        key, idx = m.groups()
+        if key is not None:
+            tokens.append(("key", key))
         else:
-            cur[k] = value
+            tokens.append(("index", int(idx)))
+    cur = target
+    for i, (t, v) in enumerate(tokens):
+        last = i == len(tokens) - 1
+        if t == "key":
+            if last:
+                cur[v] = value
+            else:
+                if v not in cur or not isinstance(cur.get(v), (dict, list)):
+                    cur[v] = {}
+                cur = cur[v]
+        else:
+            if not isinstance(cur, list):
+                cur_parent = cur
+                cur_key = tokens[i - 1][1] if i > 0 and tokens[i - 1][0] == "key" else None
+                if cur_key is not None and isinstance(cur_parent.get(cur_key), list):
+                    cur = cur_parent[cur_key]
+                else:
+                    new_list = []
+                    if cur_key is not None:
+                        cur_parent[cur_key] = new_list
+                        cur = new_list
+                    else:
+                        cur = new_list
+            while len(cur) <= v:
+                cur.append({})
+            if last:
+                cur[v] = value
+            else:
+                if not isinstance(cur[v], dict):
+                    cur[v] = {}
+                cur = cur[v]

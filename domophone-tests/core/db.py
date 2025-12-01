@@ -65,21 +65,9 @@ def get_parameters_for_firmware(
 
 
 # --- API Methods ---
-def get_api_method_by_name_and_fw(
-    conn: sqlite3.Connection, method_name: str, firmware_version_id: int
-) -> Optional[ApiMethod]:
-    cursor = conn.execute("""
-        SELECT * FROM api_methods
-        WHERE method_name = ? AND firmware_version_id = ?
-    """, (method_name, firmware_version_id))
-    row = cursor.fetchone()
-    return _row_to_model(row, ApiMethod) if row else None
-
 def get_method_info(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
 ) -> Optional[ApiMethod]:
-    """Дублирует предыдущую функцию. Её потом убрать для повсеместного перехода на эту
-    функция возвращает параметры для метода"""
     cursor = conn.execute("""
         SELECT am.id, am.method_name, am.http_method, am.firmware_version_id, 
                                         am.method_url, am.positive_status, am.control_method_name  FROM api_methods am

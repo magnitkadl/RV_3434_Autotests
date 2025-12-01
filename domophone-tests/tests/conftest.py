@@ -22,8 +22,8 @@ def db(test_config):
 
 
 @pytest.fixture(scope="session")
-def api_client(test_config):
-    client = ApiClient(test_config)
+def api_client(db, test_config):
+    client = ApiClient(test_config, db_connection=db)
     yield client
     client.close()
 
