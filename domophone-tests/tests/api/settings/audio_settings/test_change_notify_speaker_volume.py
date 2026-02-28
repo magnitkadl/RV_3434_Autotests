@@ -1,6 +1,6 @@
 import pytest
 import allure
-from tests.common.facade import run_method_test
+from tests.common.test_executor import run_method_test
 
 @allure.feature("API")
 @allure.story("Аудио настройки")

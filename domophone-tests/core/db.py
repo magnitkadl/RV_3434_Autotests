@@ -110,7 +110,7 @@ def get_api_method_params(
 
 def get_positive_status(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
-) -> List[ApiMethodParam]:
+) -> Optional[int]:
     """Временно, потом перейти на get_method_properties"""
     # получаем ожидаемый статус для позитивного теста
     cursor = conn.execute("""

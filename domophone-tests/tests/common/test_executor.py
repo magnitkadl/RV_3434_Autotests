@@ -1,6 +1,6 @@
 import allure
 from core import get_firmware_by_version, get_api_method_params, generate_correct_api_method_params, get_positive_status
-from . import logic
+from .result_verifier import execute_api_control, execute_web_control, execute_config_control
 
 def run_method_test(db, api_client, firmware_version, method_name, case=None, sent_values=None, expected_status=None):
     """
@@ -30,8 +30,8 @@ def run_method_test(db, api_client, firmware_version, method_name, case=None, se
 
     # 3. Контроль (Control & Assert)
     if control_backend == "api":
-        logic.execute_api_control(db, api_client, fw_model.id, method_name, sent_values)
+        execute_api_control(db, api_client, fw_model.id, method_name, sent_values)
     elif control_backend == "web":
-        logic.execute_web_control(db, api_client, fw_model.id, method_name, sent_values)
+        execute_web_control(db, api_client, fw_model.id, method_name, sent_values)
     elif control_backend == "config":
-        logic.execute_config_control(db, api_client, fw_model.id, method_name, sent_values)
+        execute_config_control(db, api_client, fw_model.id, method_name, sent_values)

@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 import yaml
 import os
 from loguru import logger
-from core import get_parameter, get_firmware_by_version, get_db_connection, get_method_info
+from core import get_firmware_by_version, get_method_info
 from jsonpath_ng import parse
 
 
@@ -28,15 +28,10 @@ class ApiClient:
         self.session = requests.Session()
         self.session.auth = self.auth
         self.session.timeout = 10
-        self.db_conn = db_connection
         self.db_path = self.config.get("db_path")
         self.timeout = timeout if timeout is not None else int(self.config.get("http_timeout", 10))
 
         # без автоматических ретраев: тесты должны видеть исходную ошибку
-
-    def _ensure_db_conn(self):
-        if self.db_conn is None:
-            self.db_conn = get_db_connection(self.db_path)
 
     def get_firmware_version(self) -> str:
         """Пример: получение версии прошивки через /api/v1/version"""
@@ -67,34 +62,18 @@ class ApiClient:
         logger.info("{} {} -> {} in {:.3f}s", method, url, resp.status_code, time.monotonic()-t0)
         return resp
 
-    def _get_db(self):
-        if self._db_conn is None:
-            from core import get_db_connection
-            # Предположим, что путь к БД берём из того же конфига
-            import yaml
-            with open("config/test_config.yaml") as f:
-                cfg = yaml.safe_load(f)
-            self._db_conn = get_db_connection(cfg["db_path"])
-        return self._db_conn
-
-    def get_parameter(self, param_uuid: str, firmware_version) -> Any:
+    def get_parameter(self, db, param_uuid: str, firmware_version) -> Any:
         """
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
         """
-        self._ensure_db_conn()
-        conn = self.db_conn
-
         # Шаг 1: найдём текущую прошивку устройства
-        # current_fw_version = self.get_firmware_version()  # ← должен работать!
         current_fw_version = firmware_version
-        fw = get_firmware_by_version(conn, current_fw_version)
-        # if not fw:
-        #     raise ValueError(f"Прошивка {current_fw_version} не найдена в БД")
+        fw = get_firmware_by_version(db, current_fw_version)
 
         # Шаг 2: найдём метод, который отдаёт этот параметр
         # Ищем в api_method_params запись для (param_uuid, fw.id)
-        cursor = conn.execute("""
+        cursor = db.execute("""
             SELECT amp.json_path, am.method_url, am.http_method
             FROM api_method_params amp
             JOIN api_methods am ON amp.method_id = am.id
@@ -109,20 +88,26 @@ class ApiClient:
         json_path, method_url, http_method = row
 
         # Шаг 3: получим спецификацию метода (URL и т.д.)
-        # ← Здесь тебе нужно сопоставить method_name с реальным URL.
-        # Например, через маппинг или таблицу в БД (пока хардкод)
         url = self._resolve_method_url(method_url)
         if not url:
             raise ValueError(f"Неизвестный метод API: {method_url}")
 
         # Шаг 4: вызовем API
         t0 = time.monotonic()
-        method = http_method.upper()
-        resp = self.session.request(method=method, url=url, timeout=self.timeout)
+        try:
+            if http_method.upper() == "GET":
+                resp = self.session.get(url, timeout=self.timeout)
+            elif http_method.upper() == "POST":
+                resp = self.session.post(url, timeout=self.timeout)
+            else:
+                raise NotImplementedError(f"HTTP метод {http_method} не поддерживается")
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            logger.error("{} {} failed: {}", http_method.upper(), url, e)
+            raise
 
         resp.raise_for_status()
+        logger.info("{} {} -> {} in {:.3f}s", http_method.upper(), url, resp.status_code, time.monotonic()-t0)
         response_data = resp.json()
-        logger.info("{} {} -> {} in {:.3f}s", http_method, url, resp.status_code, time.monotonic() - t0)
 
         # Шаг 5: извлечём значение по JSONPath
         try:

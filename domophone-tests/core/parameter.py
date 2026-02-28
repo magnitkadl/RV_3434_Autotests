@@ -7,7 +7,12 @@
 import random
 from jsonpath_ng import parse
 import re
-from .db import get_parameter, get_api_method_params, get_firmware_by_version, get_method_info
+from .db import (
+    get_parameter,
+    get_api_method_params,
+    get_firmware_by_version,
+    get_method_info,
+)
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
@@ -17,7 +22,7 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
     param_from_db = get_parameter(db, param_uuid, fw_model.id)
     assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {firmware_version}"
 
-    actual_value = api_client.get_parameter(param_uuid, firmware_version)
+    actual_value = api_client.get_parameter(db, param_uuid, firmware_version)
 
 
     if param_from_db.data_type_id == 1:
@@ -109,26 +114,20 @@ def _set_by_path(target, path, value):
                 cur[v] = value
             else:
                 if v not in cur or not isinstance(cur.get(v), (dict, list)):
-                    cur[v] = {}
+                    # Проверяем, какой тип данных будет следующим токеном
+                    next_token_type = tokens[i + 1][0] if i + 1 < len(tokens) else None
+                    cur[v] = [] if next_token_type == "index" else {}
                 cur = cur[v]
         else:
-            if not isinstance(cur, list):
-                cur_parent = cur
-                cur_key = tokens[i - 1][1] if i > 0 and tokens[i - 1][0] == "key" else None
-                if cur_key is not None and isinstance(cur_parent.get(cur_key), list):
-                    cur = cur_parent[cur_key]
-                else:
-                    new_list = []
-                    if cur_key is not None:
-                        cur_parent[cur_key] = new_list
-                        cur = new_list
-                    else:
-                        cur = new_list
+            # Обработка индекса в списке
             while len(cur) <= v:
                 cur.append({})
+            
             if last:
                 cur[v] = value
             else:
-                if not isinstance(cur[v], dict):
-                    cur[v] = {}
+                # Если не последний, подготавливаем структуру для следующего токена
+                next_token_type = tokens[i + 1][0] if i + 1 < len(tokens) else None
+                if not isinstance(cur[v], (dict, list)):
+                    cur[v] = [] if next_token_type == "index" else {}
                 cur = cur[v]
