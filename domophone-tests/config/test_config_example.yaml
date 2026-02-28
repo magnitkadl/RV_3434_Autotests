@@ -2,7 +2,7 @@
 device:
   host: "192.168.88.171"
   port: 80
-  username: "admin"
+  username: "admin1"
   password: "password"
   protocol: "http"  # или "https"
 

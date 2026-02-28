@@ -24,7 +24,9 @@ class ApiClient:
         self.protocol = os.getenv("DEVICE_PROTO", device["protocol"])
 
         self.base_url = f"{self.protocol}://{self.host}:{self.port}"
-        self.auth = (self.username, self.password)
+        self.username = os.getenv("DEVICE_USER", device["username"])
+        self.password = os.getenv("DEVICE_PASS", device["password"])
+        self.auth = requests.auth.HTTPBasicAuth(self.username, self.password)
         self.session = requests.Session()
         self.session.auth = self.auth
         self.session.timeout = 10

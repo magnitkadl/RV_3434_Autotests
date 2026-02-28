@@ -4,6 +4,22 @@ import os
 from core import get_db_connection, FirmwareVersion
 from services.api_client import ApiClient
 
+def pytest_addoption(parser):
+    """Добавляет опции командной строки для pytest."""
+    parser.addoption(
+        "--control",
+        action="store",
+        default="api",
+        choices=["api", "web", "config"],
+        help="Способ проверки результата: api, web или config"
+    )
+    parser.addoption(
+        "--type",
+        action="store",
+        default="positive",
+        choices=["positive", "negative", "boundary"],
+        help="Тип тестового сценария: positive, negative или boundary"
+    )
 
 @pytest.fixture(scope="session")
 def test_config():
@@ -43,3 +59,14 @@ def firmware_version(api_client, test_config) -> str:
         raw_version = config["firmware"]["expected_version"]
 
     return raw_version
+
+@pytest.fixture
+def test_case(request):
+    """
+    Фикстура для передачи параметров кейса в run_method_test.
+    Берет значения из CLI флагов --control и --type.
+    """
+    return {
+        "control": request.config.getoption("--control"),
+        "type": request.config.getoption("--type")
+    }
