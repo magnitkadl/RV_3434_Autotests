@@ -10,6 +10,9 @@ def run_method_test(db, api_client, firmware_version, method_name, case=None, se
     :param expected_status: если передано, перекрывает статус из БД
     """
     fw_model = get_firmware_by_version(db, firmware_version)
+    if fw_model is None:
+        raise ValueError(f"Прошивка {firmware_version} не найдена в базе данных")
+
     case_type = case.get("type", "positive") if case else "positive"
     control_backend = case.get("control", "api") if case else "api"
     

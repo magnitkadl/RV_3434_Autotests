@@ -51,6 +51,16 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
             return candidate if candidate != exclude else max_value
         return exclude + 1 if isinstance(exclude, int) else 1
 
+    elif param_from_db.data_type_id == 4:  # bool
+        return not actual_value
+
+    elif param_from_db.data_type_id == 5:  # enum
+        import json
+        allowed = json.loads(param_from_db.allowed_values) if param_from_db.allowed_values else []
+        exclude = actual_value
+        candidates = [v for v in allowed if v != exclude]
+        return random.choice(candidates) if candidates else exclude
+
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
 
@@ -58,8 +68,18 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
         и не попадающее на границы (границы будут проверяться отдельным тестом) '''
 
     method_info = get_method_info(db, method_name, firmware_version_id)
+    if method_info is None:
+        raise ValueError(f"Метод {method_name} не найден в БД для прошивки с ID {firmware_version_id}")
 
     # Act
+    if not method_info.control_method_name:
+        # Если контрольного метода нет, возвращаем пустое тело или базовую генерацию
+        # В данном случае, если нет контрольного метода, мы не можем получить actual_values
+        # Для MVP просто вернем пустой словарь, если нет параметров
+        if not method_params:
+            return {}
+        raise ValueError(f"Для метода {method_name} не указан control_method_name в БД")
+
     actual_values = api_client.running_method(db, method_info.control_method_name, firmware_version_id).json()
     test_values = {}
 
@@ -91,6 +111,23 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
                 test_value = candidate if exclude != candidate else max_value
             else:
                 test_value = (exclude + 1) if isinstance(exclude, int) else 1
+            _set_by_path(test_values, parameter.json_path, test_value)
+
+        elif parameter.data_type_id == 4:  # bool
+            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
+            exclude = matches[0] if matches else None
+            # Для булева типа просто меняем значение на противоположное
+            test_value = not exclude if exclude is not None else True
+            _set_by_path(test_values, parameter.json_path, test_value)
+
+        elif parameter.data_type_id == 5:  # enum
+            import json
+            allowed = json.loads(parameter.allowed_values) if parameter.allowed_values else []
+            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
+            exclude = matches[0] if matches else None
+            # Для перечисления выбираем любое значение из списка, кроме текущего
+            candidates = [v for v in allowed if v != exclude]
+            test_value = random.choice(candidates) if candidates else exclude
             _set_by_path(test_values, parameter.json_path, test_value)
 
     return test_values

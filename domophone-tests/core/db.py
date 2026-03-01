@@ -2,6 +2,7 @@
 import sqlite3
 from contextlib import contextmanager
 from typing import Optional, List
+from loguru import logger
 from .models import (
     FirmwareVersion, ConfigParameter, ApiMethod,
     ApiMethodParam, UiElementType, ParameterUiMapping
@@ -68,19 +69,26 @@ def get_parameters_for_firmware(
 def get_method_info(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
 ) -> Optional[ApiMethod]:
+    name = method_name.strip().lower()
+    logger.debug("Querying method_info for name='{}', fw_id={}", name, firmware_version_id)
     cursor = conn.execute("""
         SELECT am.id, am.method_name, am.http_method, am.firmware_version_id, 
                                         am.method_url, am.positive_status, am.control_method_name  FROM api_methods am
-        WHERE method_name = ? AND firmware_version_id = ?
-    """, (method_name, firmware_version_id))
+        WHERE LOWER(am.method_name) = ? AND am.firmware_version_id = ?
+    """, (name, firmware_version_id))
     row = cursor.fetchone()
-    return _row_to_model(row, ApiMethod) if row else None
+    if not row:
+        logger.warning("Method '{}' not found for firmware ID {}", name, firmware_version_id)
+        return None
+    return _row_to_model(row, ApiMethod)
 
 
 def get_api_method_params(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int
 ) -> List[ApiMethodParam]:
     """Выдает список объектов класса ApiMethodParam"""
+    name = method_name.strip().lower()
+    logger.debug("Querying params for method='{}', fw_id={}", name, firmware_version_id)
     cursor = conn.execute("""
         SELECT 
             amp.json_path,
@@ -104,9 +112,14 @@ def get_api_method_params(
         FROM api_method_params amp
         JOIN api_methods am ON amp.method_id = am.id
         JOIN config_parameters cp ON amp.param_uuid = cp.param_uuid
-        WHERE am.method_name = ? AND amp.firmware_version_id = ?
-    """, (method_name, firmware_version_id))
-    return [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
+        WHERE LOWER(am.method_name) = ? AND am.firmware_version_id = ?
+    """, (name, firmware_version_id))
+    params = [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
+    if not params:
+        logger.warning("No parameters found for method '{}' and firmware ID {}", name, firmware_version_id)
+    else:
+        logger.debug("Found {} parameters for method '{}'", len(params), name)
+    return params
 
 def get_positive_status(
     conn: sqlite3.Connection, method_name: str, firmware_version_id: int

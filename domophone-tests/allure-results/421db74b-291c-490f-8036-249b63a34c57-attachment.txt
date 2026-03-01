@@ -1,0 +1,10 @@
+2026-03-01 18:19:49.090 | DEBUG    | core.db:get_api_method_params:91 - Querying params for method='change notify speaker volume', fw_id=1
+2026-03-01 18:19:49.091 | DEBUG    | core.db:get_api_method_params:121 - Found 1 parameters for method 'change notify speaker volume'
+2026-03-01 18:19:49.091 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change notify speaker volume', fw_id=1
+2026-03-01 18:19:49.092 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get notify speaker volume', fw_id=1
+2026-03-01 18:19:49.102 | INFO     | services.api_client:running_method:64 - GET http://192.168.0.184:80/api/v1/settings/audio/notify_speaker_volume -> 200 in 0.016s
+2026-03-01 18:19:49.108 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change notify speaker volume', fw_id=1
+2026-03-01 18:19:49.125 | INFO     | services.api_client:running_method:64 - PATCH http://192.168.0.184:80/api/v1/settings/audio/notify_speaker_volume -> 204 in 0.015s
+2026-03-01 18:19:49.125 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change notify speaker volume', fw_id=1
+2026-03-01 18:19:49.125 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get notify speaker volume', fw_id=1
+2026-03-01 18:19:49.141 | INFO     | services.api_client:running_method:64 - GET http://192.168.0.184:80/api/v1/settings/audio/notify_speaker_volume -> 200 in 0.016s

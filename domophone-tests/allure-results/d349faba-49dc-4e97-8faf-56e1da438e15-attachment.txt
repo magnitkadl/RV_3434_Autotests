@@ -1,0 +1,10 @@
+2026-03-01 18:19:49.009 | DEBUG    | core.db:get_api_method_params:91 - Querying params for method='change audio sip settings', fw_id=1
+2026-03-01 18:19:49.009 | DEBUG    | core.db:get_api_method_params:121 - Found 3 parameters for method 'change audio sip settings'
+2026-03-01 18:19:49.009 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio sip settings', fw_id=1
+2026-03-01 18:19:49.010 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get audio sip settings', fw_id=1
+2026-03-01 18:19:49.020 | INFO     | services.api_client:running_method:64 - GET http://192.168.0.184:80/api/v1/settings/audio/sip -> 200 in 0.000s
+2026-03-01 18:19:49.044 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio sip settings', fw_id=1
+2026-03-01 18:19:49.070 | INFO     | services.api_client:running_method:64 - PATCH http://192.168.0.184:80/api/v1/settings/audio/sip -> 204 in 0.016s
+2026-03-01 18:19:49.071 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio sip settings', fw_id=1
+2026-03-01 18:19:49.071 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get audio sip settings', fw_id=1
+2026-03-01 18:19:49.081 | INFO     | services.api_client:running_method:64 - GET http://192.168.0.184:80/api/v1/settings/audio/sip -> 200 in 0.000s
