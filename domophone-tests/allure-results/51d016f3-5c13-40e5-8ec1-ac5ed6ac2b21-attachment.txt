@@ -1,0 +1,10 @@
+2026-03-02 09:54:35.927 | DEBUG    | core.db:get_api_method_params:91 - Querying params for method='change audio analog settings', fw_id=1
+2026-03-02 09:54:35.927 | DEBUG    | core.db:get_api_method_params:121 - Found 4 parameters for method 'change audio analog settings'
+2026-03-02 09:54:35.928 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio analog settings', fw_id=1
+2026-03-02 09:54:35.928 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get audio analog settings', fw_id=1
+2026-03-02 09:54:35.958 | INFO     | services.api_client:running_method:64 - GET http://192.168.88.161:80/api/v1/settings/audio/analog -> 200 in 0.031s
+2026-03-02 09:54:36.000 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio analog settings', fw_id=1
+2026-03-02 09:54:36.029 | INFO     | services.api_client:running_method:64 - PATCH http://192.168.88.161:80/api/v1/settings/audio/analog -> 204 in 0.031s
+2026-03-02 09:54:36.029 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='change audio analog settings', fw_id=1
+2026-03-02 09:54:36.030 | DEBUG    | core.db:get_method_info:73 - Querying method_info for name='get audio analog settings', fw_id=1
+2026-03-02 09:54:36.046 | INFO     | services.api_client:running_method:64 - GET http://192.168.88.161:80/api/v1/settings/audio/analog -> 200 in 0.016s

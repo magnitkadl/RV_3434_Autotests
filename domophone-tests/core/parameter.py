@@ -5,8 +5,10 @@
 Сейчас — просто переэкспорт из db для удобства.
 """
 import random
-from jsonpath_ng import parse
+import json
 import re
+import string
+from jsonpath_ng import parse
 from .db import (
     get_parameter,
     get_api_method_params,
@@ -14,68 +16,100 @@ from .db import (
     get_method_info,
 )
 
-def generate_correct_value(db, api_client, firmware_version, param_uuid):
-
-    fw_model = get_firmware_by_version(db, firmware_version)
-
-    # Act
-    param_from_db = get_parameter(db, param_uuid, fw_model.id)
-    assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {firmware_version}"
-
-    actual_value = api_client.get_parameter(db, param_uuid, firmware_version)
-
-
-    if param_from_db.data_type_id == 1:
-        min_value = int(param_from_db.min_value) if param_from_db.min_value is not None else None
-        max_value = int(param_from_db.max_value) if param_from_db.max_value is not None else None
-        exclude = actual_value
-        if min_value is not None and max_value is not None and max_value - min_value >= 2:
-            low = min_value + 1
-            high = max_value - 1
-            if exclude is not None and low <= exclude <= high and (high - low) >= 1:
+def _generate_test_value(param, exclude_value=None):
+    """
+    Универсальный генератор корректного значения для любого типа данных.
+    Гарантирует несовпадение с exclude_value и соблюдение границ.
+    """
+    dt_id = param.data_type_id
+    
+    # 1. int (Целое число)
+    if dt_id == 1:
+        min_v = int(param.min_value) if param.min_value is not None else None
+        max_v = int(param.max_value) if param.max_value is not None else None
+        if min_v is not None and max_v is not None and max_v - min_v >= 2:
+            low, high = min_v + 1, max_v - 1
+            if exclude_value is not None and low <= exclude_value <= high and (high - low) >= 1:
                 n = high - low + 1
                 k = random.randint(0, n - 2)
                 test_value = low + k
-                if test_value >= exclude:
+                if test_value >= exclude_value:
                     test_value += 1
-            else:
-                test_value = random.randint(low, high)
-            return test_value
-        if min_value is not None and max_value is not None:
-            return min_value if exclude != min_value else max_value
-        if min_value is not None:
-            candidate = min_value + 1
-            return candidate if candidate != exclude else min_value
-        if max_value is not None:
-            candidate = max_value - 1
-            return candidate if candidate != exclude else max_value
-        return exclude + 1 if isinstance(exclude, int) else 1
+                return test_value
+            return random.randint(low, high)
+        if min_v is not None and max_v is not None:
+            return min_v if exclude_value != min_v else max_v
+        return (exclude_value + 1) if isinstance(exclude_value, (int, float)) else 1
 
-    elif param_from_db.data_type_id == 4:  # bool
-        return not actual_value
+    # 2. float (Дробное число)
+    elif dt_id == 2:
+        min_v = float(param.min_value) if param.min_value is not None else 0.0
+        max_v = float(param.max_value) if param.max_value is not None else 100.0
+        # Генерируем случайное число в диапазоне, отличное от текущего
+        val = random.uniform(min_v, max_v)
+        if exclude_value is not None and abs(val - exclude_value) < 0.001:
+            val = (val + 1.0) if val + 1.0 <= max_v else (val - 1.0)
+        return round(val, 2)
 
-    elif param_from_db.data_type_id == 5:  # enum
-        import json
-        allowed = json.loads(param_from_db.allowed_values) if param_from_db.allowed_values else []
-        exclude = actual_value
-        candidates = [v for v in allowed if v != exclude]
-        return random.choice(candidates) if candidates else exclude
+    # 3. string (Строковое значение)
+    elif dt_id == 3:
+        # Если есть пример значения и он отличается от текущего - берем его
+        if hasattr(param, 'example_value') and param.example_value and param.example_value != exclude_value:
+            return param.example_value
+        # Иначе генерируем случайную строку
+        chars = string.ascii_letters + string.digits
+        new_val = ''.join(random.choice(chars) for _ in range(8))
+        return f"test_{new_val}"
+
+    # 4. bool (Булево значение)
+    elif dt_id == 4:
+        return not exclude_value if exclude_value is not None else True
+
+    # 5. enum (Список значений)
+    elif dt_id == 5:
+        allowed = json.loads(param.allowed_values) if param.allowed_values else []
+        candidates = [v for v in allowed if v != exclude_value]
+        return random.choice(candidates) if candidates else exclude_value
+
+    # 6. json (JSON объект)
+    elif dt_id == 6:
+        if hasattr(param, 'example_value') and param.example_value:
+            try:
+                return json.loads(param.example_value)
+            except:
+                pass
+        return exclude_value if exclude_value is not None else {}
+
+    # 7. array (Массив)
+    elif dt_id == 7:
+        if hasattr(param, 'example_value') and param.example_value:
+            try:
+                return json.loads(param.example_value)
+            except:
+                pass
+        return exclude_value if exclude_value is not None else []
+
+    return exclude_value
+
+
+def generate_correct_value(db, api_client, firmware_version, param_uuid):
+    fw_model = get_firmware_by_version(db, firmware_version)
+    param_from_db = get_parameter(db, param_uuid, fw_model.id)
+    assert param_from_db is not None, f"Параметр {param_uuid} не найден для прошивки {firmware_version}"
+    
+    actual_value = api_client.get_parameter(db, param_uuid, firmware_version)
+    return _generate_test_value(param_from_db, actual_value)
 
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
-
-    ''' Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее с текущим
-        и не попадающее на границы (границы будут проверяться отдельным тестом) '''
-
+    """ Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее с текущим
+        и не попадающее на границы (границы будут проверяться отдельным тестом) """
+    
     method_info = get_method_info(db, method_name, firmware_version_id)
     if method_info is None:
         raise ValueError(f"Метод {method_name} не найден в БД для прошивки с ID {firmware_version_id}")
 
-    # Act
     if not method_info.control_method_name:
-        # Если контрольного метода нет, возвращаем пустое тело или базовую генерацию
-        # В данном случае, если нет контрольного метода, мы не можем получить actual_values
-        # Для MVP просто вернем пустой словарь, если нет параметров
         if not method_params:
             return {}
         raise ValueError(f"Для метода {method_name} не указан control_method_name в БД")
@@ -84,51 +118,15 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
     test_values = {}
 
     for parameter in method_params:
-
-        if parameter.data_type_id == 1:
-            min_value = int(parameter.min_value) if parameter.min_value is not None else None
-            max_value = int(parameter.max_value) if parameter.max_value is not None else None
-            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
-            exclude = matches[0] if matches else None
-            if min_value is not None and max_value is not None and max_value - min_value >= 2:
-                low = min_value + 1
-                high = max_value - 1
-                if exclude is not None and low <= exclude <= high and (high - low) >= 1:
-                    n = high - low + 1
-                    k = random.randint(0, n - 2)
-                    test_value = low + k
-                    if test_value >= exclude:
-                        test_value += 1
-                else:
-                    test_value = random.randint(low, high)
-            elif min_value is not None and max_value is not None:
-                test_value = min_value if exclude != min_value else max_value
-            elif min_value is not None:
-                candidate = min_value + 1
-                test_value = candidate if exclude != candidate else min_value
-            elif max_value is not None:
-                candidate = max_value - 1
-                test_value = candidate if exclude != candidate else max_value
-            else:
-                test_value = (exclude + 1) if isinstance(exclude, int) else 1
-            _set_by_path(test_values, parameter.json_path, test_value)
-
-        elif parameter.data_type_id == 4:  # bool
-            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
-            exclude = matches[0] if matches else None
-            # Для булева типа просто меняем значение на противоположное
-            test_value = not exclude if exclude is not None else True
-            _set_by_path(test_values, parameter.json_path, test_value)
-
-        elif parameter.data_type_id == 5:  # enum
-            import json
-            allowed = json.loads(parameter.allowed_values) if parameter.allowed_values else []
-            matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
-            exclude = matches[0] if matches else None
-            # Для перечисления выбираем любое значение из списка, кроме текущего
-            candidates = [v for v in allowed if v != exclude]
-            test_value = random.choice(candidates) if candidates else exclude
-            _set_by_path(test_values, parameter.json_path, test_value)
+        # Извлекаем текущее значение по JSONPath
+        matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
+        exclude = matches[0] if matches else None
+        
+        # Генерируем новое значение
+        test_value = _generate_test_value(parameter, exclude)
+        
+        # Устанавливаем в результирующий словарь
+        _set_by_path(test_values, parameter.json_path, test_value)
 
     return test_values
 

@@ -1,1 +1,0 @@
-{'sip_mic_sensitivity': 9, 'sip_incoming_volume': 5, 'sip_volume': 11}
