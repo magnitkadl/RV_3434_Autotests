@@ -22,3 +22,5 @@ jsonpath-ng==1.7.0
 allure-pytest==2.15.0
 loguru==0.7.2
 PyYAML==6.0.2
+PyQt6==6.8.1
+setuptools
