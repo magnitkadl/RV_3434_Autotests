@@ -17,6 +17,7 @@ def traverse_config(data, path=''):
         for key, value in data.items():
             if key in ['version', 'mac', 'ip', 'time'] and not path:
                 continue
+            
             new_path = f'{path}.{key}' if path else key
             yield from traverse_config(value, new_path)
     elif isinstance(data, list):
