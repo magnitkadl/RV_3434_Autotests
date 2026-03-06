@@ -1,5 +1,4 @@
 import argparse
-import argparse
 import json
 import yaml
 import sys
@@ -17,7 +16,6 @@ def traverse_config(data, path=''):
         for key, value in data.items():
             if key in ['version', 'mac', 'ip', 'time'] and not path:
                 continue
-            
             new_path = f'{path}.{key}' if path else key
             yield from traverse_config(value, new_path)
     elif isinstance(data, list):
@@ -44,9 +42,7 @@ def sync_config(config_path, firmware_version=None, db_path="domophone-tests/res
     with open(config_path, 'r', encoding='utf-8') as f:
         config_data = json.load(f) if config_path.endswith('.json') or config_path.endswith('.dat') else yaml.safe_load(f)
 
-    # Если версия прошивки не передана, пытаемся извлечь из конфига
     if not firmware_version:
-        # Пытаемся найти в разных ключах (version, deviceVersion)
         firmware_version = config_data.get('version') or config_data.get('deviceVersion')
         if not firmware_version:
             print("Ошибка: не удалось определить версию прошивки ни из аргументов, ни из файла.")
@@ -60,34 +56,33 @@ def sync_config(config_path, firmware_version=None, db_path="domophone-tests/res
         
         print(f"Синхронизация для прошивки: {fw.version} (ID: {fw.id})")
 
-        # Если есть ключ 'settings', начинаем обход с него, чтобы json_path был короче
         root_data = config_data.get('settings', config_data)
         root_path = 'settings' if 'settings' in config_data else ''
 
         try:
             for json_path, value in traverse_config(root_data, root_path):
-                # Ищем параметр по его пути в конфиге (location)
                 cursor = conn.execute("SELECT * FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (json_path, fw.id))
                 param = cursor.fetchone()
 
                 if param:
-                    # print(f"[OK] Параметр {json_path} уже существует.")
                     continue
                 
-                # Ищем параметр в старых прошивках, чтобы скопировать атрибуты
                 cursor = conn.execute("SELECT * FROM config_parameters WHERE location = ? ORDER BY firmware_version_id DESC LIMIT 1", (json_path,))
                 latest_param_row = cursor.fetchone()
                 
                 if latest_param_row:
                     print(f"[КОПИРОВАНИЕ] Найден аналог для {json_path}. Создание записи для новой прошивки...")
-                    new_param_data = dict(latest_param_row)
+                    # Преобразуем sqlite3.Row в словарь
+                    row_dict = dict(zip([c[0] for c in cursor.description], latest_param_row))
+                    
+                    new_param_data = row_dict
                     new_param_data['firmware_version_id'] = fw.id
                     new_param_data['default_value'] = str(value)
                     new_param_data['created_at'] = new_param_data['updated_at'] = datetime.utcnow().isoformat()
                     
                     columns = ", ".join(new_param_data.keys())
-                    placeholders = ", ".join(["?" for _ in new_param_data])
-                    conn.execute(f"INSERT INTO config_parameters ({columns}) VALUES ({placeholders})", list(new_param_data.values()))
+                    placeholders = ", ".join([":" + key for key in new_param_data.keys()])
+                    conn.execute(f"INSERT INTO config_parameters ({columns}) VALUES ({placeholders})", new_param_data)
                     print(f"  -> Успешно скопировано.")
                 else:
                     print(f"[НОВЫЙ] Обнаружен новый параметр: {json_path} со значением '{value}'")
@@ -99,13 +94,14 @@ def sync_config(config_path, firmware_version=None, db_path="domophone-tests/res
                             print(f"    -> Тип данных определен как: {data_type_id}")
                             
                             min_v = max_v = allowed_v = None
-                            if data_type_id in (1, 2): # int, float
+                            if data_type_id in (1, 2):
                                 min_v = input(f"    -> Минимум (Enter для пропуска): ")
                                 max_v = input(f"    -> Максимум (Enter для пропуска): ")
-                            elif data_type_id == 5: # enum
+                            elif data_type_id == 5:
                                 allowed_v = input(f"    -> Список значений (JSON, например [\"a\",\"b\"]): ")
                             
-                            param_uuid = input(f"    -> Введите логическое имя (param_uuid, Enter, чтобы использовать {json_path}): ") or json_path
+                            suggested_uuid = json_path.replace('settings.', '', 1) if json_path.startswith('settings.') else json_path
+                            param_uuid = input(f"    -> Введите логическое имя (param_uuid, Enter, чтобы использовать {suggested_uuid}): ") or suggested_uuid
                             location = json_path
                             
                             new_param_data = {
@@ -122,8 +118,8 @@ def sync_config(config_path, firmware_version=None, db_path="domophone-tests/res
                                 'updated_at': datetime.utcnow().isoformat()
                             }
                             columns = ", ".join(new_param_data.keys())
-                            placeholders = ", ".join(["?" for _ in new_param_data])
-                            conn.execute(f"INSERT INTO config_parameters ({columns}) VALUES ({placeholders})", list(new_param_data.values()))
+                            placeholders = ", ".join([":" + key for key in new_param_data.keys()])
+                            conn.execute(f"INSERT INTO config_parameters ({columns}) VALUES ({placeholders})", new_param_data)
                             print(f"  -> Параметр {json_path} добавлен.")
                         elif action == 'exit':
                             print("Выход из цикла добавления...")
