@@ -56,11 +56,8 @@ def sync_config(config_path, firmware_version=None, db_path="domophone-tests/res
         
         print(f"Синхронизация для прошивки: {fw.version} (ID: {fw.id})")
 
-        root_data = config_data.get('settings', config_data)
-        root_path = 'settings' if 'settings' in config_data else ''
-
         try:
-            for json_path, value in traverse_config(root_data, root_path):
+            for json_path, value in traverse_config(config_data):
                 cursor = conn.execute("SELECT * FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (json_path, fw.id))
                 param = cursor.fetchone()
 
