@@ -30,17 +30,35 @@ def search_config_params(conn, fw_id, query):
 
 def add_api_method(conn, fw_id, name=None, http_method=None, url=None):
     print("\n--- Добавление нового API-метода ---")
+    
+    # Очистка имени по умолчанию (берем только последнюю часть пути в коллекции)
+    if name and " / " in name:
+        name = name.split(" / ")[-1]
+        
+    # Очистка URL по умолчанию (убираем http://{{...}} и оставляем /api/...)
+    if url:
+        if '{{' in url and '/api/' in url:
+            url = '/api/' + url.split('/api/')[1]
+        elif not url.startswith('/'):
+            # Если нет протокола, но есть путь
+            if '/api/' in url:
+                url = '/api/' + url.split('/api/')[1]
+
     name = input(f"Введите имя метода (по умолчанию '{name}'): ") or name if name else input("Введите имя метода: ")
     http_method = input(f"Введите HTTP метод (по умолчанию '{http_method}'): ").upper() or http_method if http_method else input("Введите HTTP метод (GET, POST, PUT, PATCH): ").upper() or "POST"
     url = input(f"Введите URL метода (по умолчанию '{url}'): ") or url if url else input("Введите URL метода (например, '/api/v1/settings/audio/sip'): ")
     pos_status = input("Введите ожидаемый статус успеха (по умолчанию 200): ") or "200"
-    control_method = input("Введите имя контрольного метода (GET), если есть: ")
+    control_method = input("Введите имя контрольного метода (для сверки результата), если есть: ")
 
-    # Очистка URL от {{переменных}}
-    if url and '{{' in url:
-        # Упрощенная очистка: заменяем http://{{host}}/api/v1/... на /api/v1/...
-        if '/api/' in url:
-            url = '/api/' + url.split('/api/')[1]
+    # ПРОВЕРКА НА ДУБЛИКАТЫ
+    check = conn.execute("""
+        SELECT id FROM api_methods 
+        WHERE method_name = ? AND http_method = ? AND firmware_version_id = ?
+    """, (name, http_method, fw_id)).fetchone()
+    
+    if check:
+        print(f"  [!] ОШИБКА: Метод '{name}' [{http_method}] уже существует для этой прошивки (ID: {check[0]}).")
+        return check[0], name
 
     cursor = conn.execute("""
         INSERT INTO api_methods (method_name, http_method, firmware_version_id, method_url, positive_status, control_method_name)
@@ -131,9 +149,19 @@ def map_json_to_api_params(conn, method_id, fw_id, sample_json_str):
             # 2. По совпадению с settings.path
             cursor = conn.execute("SELECT param_uuid, name FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (f"settings.{json_path}", fw_id))
             match = cursor.fetchone()
+            
+        if not match:
+            # 3. УМНОЕ СОПОСТАВЛЕНИЕ: поиск параметра, путь которого заканчивается на этот ключ (например volume -> settings.system_audio.volume)
+            cursor = conn.execute("""
+                SELECT param_uuid, name, location FROM config_parameters 
+                WHERE (location LIKE ? OR param_uuid LIKE ?) AND firmware_version_id = ?
+            """, (f'%.{json_path}', f'%.{json_path}', fw_id))
+            match = cursor.fetchone()
 
         if match:
             print(f"  [АВТО] Найдено совпадение: {match[0]} ({match[1]})")
+            if len(match) > 2: # Если это результат умного поиска
+                 print(f"         Путь в БД: {match[2]}")
             action = input("  Привязать этот параметр? (y/n/skip/exit, по умолчанию y): ").lower() or 'y'
         else:
             print("  [!] Соответствие в конфигурации не найдено.")

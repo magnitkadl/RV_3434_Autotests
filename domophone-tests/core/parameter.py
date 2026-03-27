@@ -88,8 +88,17 @@ def _generate_test_value(param, exclude_value=None):
             except:
                 pass
         return exclude_value if exclude_value is not None else []
+    
+    elif dt_id == 12:
+        '''Временная заглушка до обработки этого типа данных'''
+        
+        exclude_value = '{"s8CngMode":1,"s8NearAllPassEnergy":1,"s8NearCleanSupEnergy":1,"s16DTHnlSortQTh":16384,"s16EchoBandLow":10,"s16EchoBandHigh":41,"s16EchoBandLow2":47,"s16EchoBandHigh2":63,"s16ERLBand":[4,6,36,49,50,51],"s16ERL":[7,10,16,10,18,18,18],"s16VioceProtectFreqL":3,"s16VioceProtectFreqL1":6}'
+        return exclude_value if exclude_value is not None else {}
 
     return exclude_value
+
+
+def generate_correct_value(db, api_client, firmware_version, param_uuid):    return exclude_value
 
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):
