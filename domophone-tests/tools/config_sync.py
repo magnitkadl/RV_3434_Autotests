@@ -135,7 +135,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Синхронизация конфигурационного файла с БД параметров.")
     parser.add_argument("config_file", help="Путь к файлу конфигурации (JSON или YAML).")
     parser.add_argument("-fw", "--firmware_version", help="Версия прошивки (если не указана, будет взята из файла).", default=None)
-    parser.add_argument("--db-path", default="domophone-tests/resources/domophone.db", help="Путь к файлу БД.")
+    
+    # Пытаемся автоматически найти БД
+    default_db = "resources/domophone.db" if os.path.exists("resources/domophone.db") else "domophone-tests/resources/domophone.db"
+    
+    parser.add_argument("--db-path", default=default_db, help=f"Путь к файлу БД (по умолчанию: {default_db}).")
     parser.add_argument("--non-interactive", action="store_true", help="Отключить интерактивный режим.")
     
     args = parser.parse_args()

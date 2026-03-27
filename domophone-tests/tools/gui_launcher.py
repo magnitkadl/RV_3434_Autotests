@@ -18,13 +18,13 @@ class GuiLauncher(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
-        
+      # Создаем вкладки
         self.tabs = QTabWidget()
         self.layout.addWidget(self.tabs)
         
-        # Создаем вкладки
         self.init_test_tab()
         self.init_sync_tab()
+        self.init_api_sync_tab()  # Новая вкладка
         self.init_param_tab()
         
         # Лог вывода
@@ -124,6 +124,41 @@ class GuiLauncher(QMainWindow):
         layout.addStretch()
         self.tabs.addTab(tab, "Config Sync")
 
+    def init_api_sync_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        api_group = QGroupBox("API Methods Sync")
+        api_layout = QVBoxLayout()
+        
+        # Версия прошивки
+        fw_api_layout = QHBoxLayout()
+        fw_api_layout.addWidget(QLabel("Target Firmware:"))
+        self.api_fw_input = QLineEdit()
+        self.api_fw_input.setPlaceholderText("e.g. 2025.05.175445501")
+        fw_api_layout.addWidget(self.api_fw_input)
+        api_layout.addLayout(fw_api_layout)
+        
+        # Выбор коллекции Postman
+        coll_layout = QHBoxLayout()
+        self.api_coll_path = QLineEdit()
+        self.api_coll_path.setPlaceholderText("Path to Postman collection (optional)...")
+        coll_layout.addWidget(self.api_coll_path)
+        btn_browse_coll = QPushButton("Browse")
+        btn_browse_coll.clicked.connect(self.browse_collection)
+        coll_layout.addWidget(btn_browse_coll)
+        api_layout.addLayout(coll_layout)
+        
+        api_btn = QPushButton("Launch Interactive API Sync")
+        api_btn.clicked.connect(self.run_api_sync)
+        api_layout.addWidget(api_btn)
+        
+        api_group.setLayout(api_layout)
+        layout.addWidget(api_group)
+        
+        layout.addStretch()
+        self.tabs.addTab(tab, "API Sync")
+
     def init_param_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -135,6 +170,11 @@ class GuiLauncher(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Config File", "", "Config Files (*.json *.yaml *.yml *.dat);;All Files (*)")
         if file_path:
             self.config_file_path.setText(file_path)
+
+    def browse_collection(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Postman Collection", "", "JSON Files (*.json);;All Files (*)")
+        if file_path:
+            self.api_coll_path.setText(file_path)
 
     def handle_stdout(self):
         data = self.process.readAllStandardOutput().data().decode("utf-8")
@@ -186,6 +226,25 @@ class GuiLauncher(QMainWindow):
         # Для интерактивности в будущем нужно будет использовать терминал, 
         # но пока запускаем как процесс
         self.process.start("python", args)
+
+    def run_api_sync(self):
+        fw = self.api_fw_input.text()
+        if not fw:
+            self.log_output.append("Error: Enter firmware version first!")
+            return
+            
+        self.log_output.append(f"Launching interactive API sync for {fw} in a new terminal...\n")
+        
+        # Запускаем в новом окне терминала для интерактивности
+        coll_path = self.api_coll_path.text()
+        coll_arg = f' --collection "{coll_path}"' if coll_path else ""
+        
+        if os.name == 'nt': # Windows
+            cmd = f'start cmd /k python domophone-tests/tools/api_sync.py {fw}{coll_arg}'
+            os.system(cmd)
+        else: # Linux/Mac
+            cmd = f"x-terminal-emulator -e 'python3 domophone-tests/tools/api_sync.py {fw}{coll_arg}'"
+            os.system(cmd)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

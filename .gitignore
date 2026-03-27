@@ -62,3 +62,4 @@ domophone-tests/config/test_config.yaml
 
 # Отчёты
 reports/
+allure-results/

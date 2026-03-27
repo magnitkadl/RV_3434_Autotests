@@ -1,1 +1,0 @@
-{'analog_mic_sensitivity': 12, 'analog_volume': 3, 'proxy_handset_speaker_volume': 3, 'ignore_custom_analog_audio_settings': True}
