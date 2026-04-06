@@ -25,6 +25,7 @@ def _generate_test_value(param, exclude_value=None):
     
     # 1. int (Целое число)
     if dt_id == 1:
+        exclude_value = int(exclude_value) if exclude_value is not None else None
         min_v = int(param.min_value) if param.min_value is not None else None
         max_v = int(param.max_value) if param.max_value is not None else None
         if min_v is not None and max_v is not None and max_v - min_v >= 2:
