@@ -98,6 +98,10 @@ def _generate_test_value(param, exclude_value=None):
 
     return exclude_value
 
+def type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api):
+    # Перевод значения из апи для поиска по значениям конфигурации
+    
+
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):    return exclude_value
 
@@ -112,8 +116,8 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
-    """ Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее с текущим
-        и не попадающее на границы (границы будут проверяться отдельным тестом) """
+    """ Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее 
+        с текущим и не попадающее на границы (границы будут проверяться отдельным тестом) """
     
     method_info = get_method_info(db, method_name, firmware_version_id)
     if method_info is None:
@@ -131,6 +135,13 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
         # Извлекаем текущее значение по JSONPath
         matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
         exclude = matches[0] if matches else None
+
+        # Получаем правила конвертации параметра
+        parameter_rules_convertations_api = parameter.rule_payload if parameter.rule_payload else None
+        if parameter_rules_convertations_api:
+            rule_type = parameter.rule_type
+            exclude = type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api)
+
         
         # Генерируем новое значение
         test_value = _generate_test_value(parameter, exclude)

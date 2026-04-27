@@ -14,6 +14,7 @@ def get_db_connection(db_path: str):
     """Контекстный менеджер для безопасного подключения к БД."""
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON") 
     try:
         yield conn
     finally:
@@ -108,10 +109,13 @@ def get_api_method_params(
             cp.min_value,
             cp.max_value,
             cp.allowed_values,
-            cp.unit
+            cp.unit,
+            cr.rule_payload,
+            cr.rule_type 
         FROM api_method_params amp
         JOIN api_methods am ON amp.method_id = am.id
         JOIN config_parameters cp ON amp.param_uuid = cp.param_uuid
+        lEFT JOIN conversion_rules cr ON cr.param_uuid = cp.param_uuid
         WHERE LOWER(am.method_name) = ? AND am.firmware_version_id = ?
     """, (name, firmware_version_id))
     params = [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
