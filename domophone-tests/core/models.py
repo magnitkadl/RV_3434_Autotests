@@ -70,6 +70,8 @@ class ApiMethodParam(BaseModel):
     max_value: Optional[int] = None
     allowed_values: Optional[str] = None
     unit: Optional[str] = None
+    rule_payload: Optional[str] = None
+    rule_type: Optional[str] = None
 
     # model_config = ConfigDict(extra='ignore')  # на случай, если что-то лишнее пришло
 

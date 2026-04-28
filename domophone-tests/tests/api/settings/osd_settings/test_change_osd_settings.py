@@ -12,6 +12,6 @@ def test_change_osd_settings(db, api_client, firmware_version, test_case):
         db=db,
         api_client=api_client,
         firmware_version=firmware_version,
-        method_name="Change OSD settings",
+        method_name="Change OSD Settings",
         case=test_case
     )

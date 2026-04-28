@@ -29,7 +29,7 @@ def _generate_test_value(param, exclude_value=None):
         min_v = int(param.min_value) if param.min_value is not None else None
         max_v = int(param.max_value) if param.max_value is not None else None
         if min_v is not None and max_v is not None and max_v - min_v >= 2:
-            low, high = min_v + 1, max_v - 1
+            low, high = min_v, max_v
             if exclude_value is not None and low <= exclude_value <= high and (high - low) >= 1:
                 n = high - low + 1
                 k = random.randint(0, n - 2)
@@ -100,8 +100,62 @@ def _generate_test_value(param, exclude_value=None):
 
 def type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api):
     # Перевод значения из апи для поиска по значениям конфигурации
+    try:
+        rule_type = rule_type.upper() if rule_type else ""
+        #print (rule_type)
+        
+        if rule_type == "MAP":
+            mapping = parameter_rules_convertations_api #.get("mapping", {})
+            reverse_mapping = {v: k for k, v in mapping.items()}
+            #print(f"  MAP: {exclude}")
+            return reverse_mapping.get(exclude)
+        
+        elif rule_type == "FORMAT":
+            #  реализовать позже
+            return exclude
+        
+        elif rule_type == "FORMULA":
+            #  реализовать позже
+            return exclude
+        
+        else:
+            return exclude
     
 
+    except Exception as e:
+        #logger.error(f"Ошибка конвертации: {e}, rule_type={rule_type}, value={exclude}")
+        # на будущее сделать единое логирование
+        return exclude  # Возвращаем как есть при ошибке
+
+def type_conversion_from_config_to_api(value, rule_type, parameter_rules_convertations_api):
+    # Перевод значения из апи для поиска по значениям конфигурации
+    try:
+        rule_type = rule_type.upper() if rule_type else ""
+        #print (f' итог {rule_type}')
+        
+        if rule_type == "MAP":
+            mapping = parameter_rules_convertations_api #.get("mapping", {})
+            #print(f" итог MAP: {type(mapping)}, {value}, {mapping.get(str(value))}")
+            return mapping.get(str(value))
+        
+        elif rule_type == "FORMAT":
+            #  реализовать позже
+            return value
+        
+        elif rule_type == "FORMULA":
+            #  реализовать позже
+            return value
+        
+        else:
+            #print('problem')
+            return value
+    
+
+    except Exception as e:
+        #logger.error(f"Ошибка конвертации: {e}, rule_type={rule_type}, value={exclude}")
+        # на будущее сделать единое логирование
+        #print(e, 'ex')
+        return value  # Возвращаем как есть при ошибке
 
 def generate_correct_value(db, api_client, firmware_version, param_uuid):    return exclude_value
 
@@ -136,16 +190,27 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
         matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
         exclude = matches[0] if matches else None
 
-        # Получаем правила конвертации параметра
+        # Получаем правила конвертации параметра и переводим значение из апи в конфиг
         parameter_rules_convertations_api = parameter.rule_payload if parameter.rule_payload else None
+        
         if parameter_rules_convertations_api:
+            
+            parameter_rules_convertations_api = json.loads(parameter_rules_convertations_api)
+            parameter_rules_convertations_api = parameter_rules_convertations_api['mapping']
+            
+            #print(parameter_rules_convertations_api, type(parameter_rules_convertations_api))
             rule_type = parameter.rule_type
             exclude = type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api)
 
         
         # Генерируем новое значение
         test_value = _generate_test_value(parameter, exclude)
-        
+
+        # Переводим значение из конфига в апи
+        if parameter_rules_convertations_api:
+            
+            test_value = type_conversion_from_config_to_api(test_value, rule_type, parameter_rules_convertations_api)
+        #print(f' готовое значение = {test_value}')
         # Устанавливаем в результирующий словарь
         _set_by_path(test_values, parameter.json_path, test_value)
 
