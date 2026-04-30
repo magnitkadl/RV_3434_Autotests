@@ -58,8 +58,9 @@ class ApiClient:
                 timeout=self.timeout,
             )
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            logger.error("{} {} failed: {}", method, url, e)
+            logger.error("{} {} failed: {}, test_value = {}", method, url, e, test_values)
             raise
+        #print(test_values)
         resp.raise_for_status()
         logger.info("{} {} -> {} in {:.3f}s", method, url, resp.status_code, time.monotonic()-t0)
         return resp
