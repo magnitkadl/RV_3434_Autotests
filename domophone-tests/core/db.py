@@ -97,6 +97,8 @@ def get_api_method_params(
             amp.in_request,
             amp.condition_expr,
             amp.example_value,
+            amp.gen_rule,
+            amp.related_params_uuid,
             cp.param_uuid,
             cp.location,
             cp.name,
@@ -110,12 +112,12 @@ def get_api_method_params(
             cp.max_value,
             cp.allowed_values,
             cp.unit,
-            cr.rule_payload,
-            cr.rule_type 
+            cra.rule_payload,
+            cra.rule_type 
         FROM api_method_params amp
         JOIN api_methods am ON amp.method_id = am.id
-        JOIN config_parameters cp ON amp.param_uuid = cp.param_uuid
-        lEFT JOIN conversion_rules cr ON cr.param_uuid = cp.param_uuid
+        LEFT JOIN config_parameters cp ON amp.related_params_uuid = cp.param_uuid
+        lEFT JOIN conversion_rules_api cra ON cra.json_path = amp.json_path AND cra.method_id = amp.method_id 
         WHERE LOWER(am.method_name) = ? AND am.firmware_version_id = ?
     """, (name, firmware_version_id))
     params = [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]

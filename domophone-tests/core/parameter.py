@@ -102,13 +102,16 @@ def type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_conve
     # Перевод значения из апи для поиска по значениям конфигурации
     try:
         rule_type = rule_type.upper() if rule_type else ""
-        #print (rule_type)
+        print (rule_type)
         
         if rule_type == "MAP":
-            mapping = parameter_rules_convertations_api #.get("mapping", {})
-            reverse_mapping = {v: k for k, v in mapping.items()}
-            #print(f"  MAP: {exclude}")
-            return reverse_mapping.get(exclude)
+            print (rule_type)
+            mapping = parameter_rules_convertations_api.get("mapping", {})
+            print (mapping)
+            #reverse_mapping = {v: k for k, v in mapping.items()}
+
+            print(f"правила из апи - {mapping}  значение -  {exclude} результат - {mapping.get(exclude)}")
+            return mapping.get(exclude)
         
         elif rule_type == "FORMAT":
             #  реализовать позже
@@ -134,9 +137,10 @@ def type_conversion_from_config_to_api(value, rule_type, parameter_rules_convert
         #print (f' итог {rule_type}')
         
         if rule_type == "MAP":
-            mapping = parameter_rules_convertations_api #.get("mapping", {})
-            #print(f" итог MAP: {type(mapping)}, {value}, {mapping.get(str(value))}")
-            return mapping.get(str(value))
+            mapping = parameter_rules_convertations_api.get("mapping", {})
+            reverse_mapping = {v: k for k, v in mapping.items()}
+            print(f" итог MAP: {type(mapping)}, {value}, {reverse_mapping.get(str(value))}")
+            return reverse_mapping.get(str(value))
         
         elif rule_type == "FORMAT":
             #  реализовать позже
@@ -171,7 +175,7 @@ def generate_correct_value(db, api_client, firmware_version, param_uuid):
 
 def generate_correct_api_method_params(db, method_params, api_client, firmware_version_id, method_name):
     """ Получает для метода параметры, считывает актуальное значение и генерирует новое, не совпадающее 
-        с текущим и не попадающее на границы (границы будут проверяться отдельным тестом) """
+        с текущим"""
     
     method_info = get_method_info(db, method_name, firmware_version_id)
     if method_info is None:
@@ -186,34 +190,41 @@ def generate_correct_api_method_params(db, method_params, api_client, firmware_v
     test_values = {}
 
     for parameter in method_params:
-        # Извлекаем текущее значение по JSONPath
-        matches = [m.value for m in parse(parameter.json_path).find(actual_values)]
-        exclude = matches[0] if matches else None
-
-        # Получаем правила конвертации параметра и переводим значение из апи в конфиг
-        parameter_rules_convertations_api = parameter.rule_payload if parameter.rule_payload else None
         
-        if parameter_rules_convertations_api:
-            
-            parameter_rules_convertations_api = json.loads(parameter_rules_convertations_api)
-            parameter_rules_convertations_api = parameter_rules_convertations_api['mapping']
-            
-            #print(parameter_rules_convertations_api, type(parameter_rules_convertations_api))
-            rule_type = parameter.rule_type
-            exclude = type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api)
+        print(f"анализ параметра {parameter.json_path}")
 
-        
-        # Генерируем новое значение
-        test_value = _generate_test_value(parameter, exclude)
+        if parameter.gen_rule == 1:
 
-        # Переводим значение из конфига в апи
-        if parameter_rules_convertations_api:
+            # Извлекаем текущее значение по JSONPath
+            json_path = escape_json_path_key(parameter.json_path)
+            matches = [m.value for m in parse(json_path).find(actual_values)]
+            exclude = matches[0] if matches else None
+
+            # Получаем правила конвертации параметра и переводим значение из апи в конфиг
+            parameter_rules_convertations_api = parameter.rule_payload if parameter.rule_payload else None
+            print(f'для параметра {parameter.json_path} правила {parameter_rules_convertations_api}')
             
-            test_value = type_conversion_from_config_to_api(test_value, rule_type, parameter_rules_convertations_api)
-        #print(f' готовое значение = {test_value}')
-        # Устанавливаем в результирующий словарь
-        _set_by_path(test_values, parameter.json_path, test_value)
+            if parameter_rules_convertations_api:
+                
+                parameter_rules_convertations_api = json.loads(parameter_rules_convertations_api)
+                #parameter_rules_convertations_api = parameter_rules_convertations_api['mapping']
+                
+                #print(parameter_rules_convertations_api, type(parameter_rules_convertations_api))
+                rule_type = parameter.rule_type
+                exclude = type_conversion_from_api_to_config(exclude, rule_type, parameter_rules_convertations_api)
 
+            # Генерируем новое значение
+            test_value = _generate_test_value(parameter, exclude)
+
+            # Переводим значение из конфига в апи
+            if parameter_rules_convertations_api:
+                
+                test_value = type_conversion_from_config_to_api(test_value, rule_type, parameter_rules_convertations_api)
+            #print(f' готовое значение = {test_value}')
+            # Устанавливаем в результирующий словарь
+            _set_by_path(test_values, parameter.json_path, test_value)
+        if parameter.gen_rule == 2:
+            _set_by_path(test_values, parameter.json_path, exclude)
     return test_values
 
 def _set_by_path(target, path, value):
@@ -252,3 +263,17 @@ def _set_by_path(target, path, value):
                 if not isinstance(cur[v], (dict, list)):
                     cur[v] = [] if next_token_type == "index" else {}
                 cur = cur[v]
+
+def escape_json_path_key(key: str) -> str:
+    """
+    Экранирует ключ для JSONPath, если он содержит специальные символы.
+    """
+    # Специальные символы, требующие экранирования
+    special_chars = [':', '.', '-', ' ', '[', ']', '@', '#']
+    
+    if any(char in key for char in special_chars):
+        # Используем bracket notation с одинарными кавычками
+        return f"$['{key}']"
+    else:
+        # Обычный dot notation
+        return f"$.{key}"

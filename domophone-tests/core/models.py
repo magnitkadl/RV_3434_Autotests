@@ -55,21 +55,25 @@ class ApiMethodParam(BaseModel):
     in_request: bool = True
     condition_expr: Optional[str] = None
     example_value: Optional[str] = None
+    gen_rule: int
+    related_params_uuid: Optional[str] = None
 
     # Поля из config_parameters
-    param_uuid: str
-    location: str
-    name: str
+    param_uuid: Optional[str] = None
+    location: Optional[str] = None
+    name: Optional[str] = None
     migration_down: Optional[str] = None
     migration_up: Optional[str] = None
     description: Optional[str] = None
-    data_type_id: int
+    data_type_id: Optional[int] = None
     default_value: Optional[str] = None
     format_hint: Optional[str] = None
     min_value: Optional[int] = None
     max_value: Optional[int] = None
     allowed_values: Optional[str] = None
     unit: Optional[str] = None
+
+    # Поля из convertion_rules_api
     rule_payload: Optional[str] = None
     rule_type: Optional[str] = None
 

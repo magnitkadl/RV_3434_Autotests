@@ -50,6 +50,7 @@ class ApiClient:
         url = f"{self.base_url}{method_info.method_url}"
         method = method_info.http_method.upper()
         payload = test_values if (test_values is not None and method in {"POST", "PUT", "PATCH"}) else None
+        print(payload)
         try:
             resp = self.session.request(
                 method=method,
@@ -59,6 +60,7 @@ class ApiClient:
             )
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             logger.error("{} {} failed: {}, test_value = {}", method, url, e, test_values)
+            print(resp.text)
             raise
         #print(test_values)
         resp.raise_for_status()
