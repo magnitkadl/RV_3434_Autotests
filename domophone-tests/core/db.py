@@ -119,6 +119,7 @@ def get_api_method_params(
         LEFT JOIN config_parameters cp ON amp.related_params_uuid = cp.param_uuid
         lEFT JOIN conversion_rules_api cra ON cra.json_path = amp.json_path AND cra.method_id = amp.method_id 
         WHERE LOWER(am.method_name) = ? AND am.firmware_version_id = ?
+        ORDER BY amp.priority
     """, (name, firmware_version_id))
     params = [_row_to_model(row, ApiMethodParam) for row in cursor.fetchall()]
     if not params:
