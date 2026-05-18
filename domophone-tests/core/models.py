@@ -1,6 +1,15 @@
 # core/models.py
+from enum import IntEnum
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
+
+
+class DataTypeEnum(IntEnum):
+    INT = 1
+    FLOAT = 2
+    STRING = 3
+    BOOL = 4
+    ENUM = 5
 
 
 class FirmwareVersion(BaseModel):

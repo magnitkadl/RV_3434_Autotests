@@ -1,7 +1,7 @@
 # tests/conftest.py
 import pytest
 import os
-from core import get_db_connection, FirmwareVersion
+from core import DBRepository, FirmwareVersion
 from services.api_client import ApiClient
 
 def pytest_addoption(parser):
@@ -33,8 +33,9 @@ def db(test_config):
     with open(test_config) as f:
         config = yaml.safe_load(f)
     db_path = config["db_path"]
-    with get_db_connection(db_path) as conn:
-        yield conn
+    repo = DBRepository(db_path)
+    with repo as connected_repo:
+        yield connected_repo
 
 
 @pytest.fixture(scope="session")

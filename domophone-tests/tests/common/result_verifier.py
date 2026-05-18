@@ -1,16 +1,9 @@
 import allure
 from deepdiff import DeepDiff
-from core import (
-    get_firmware_by_version, 
-    get_api_method_params, 
-    generate_correct_api_method_params,
-    get_positive_status,
-    get_method_info
-)
 
 def execute_api_control(db, api_client, fw_id, method_name, sent_values):
     """Логика проверки через API (контрольный метод)."""
-    method_info = get_method_info(db, method_name, fw_id)
+    method_info = db.api.get_method(method_name, fw_id)
     control_method = method_info.control_method_name
     
     with allure.step(f"Контрольная проверка через API метод: {control_method}"):

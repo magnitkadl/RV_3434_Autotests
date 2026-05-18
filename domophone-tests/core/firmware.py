@@ -2,12 +2,12 @@
 import sqlite3
 from typing import List, Optional
 from .models import FirmwareVersion
-from .db import get_firmware_by_version, get_all_firmware_versions
+from .db import DBRepository
 
 
-def get_firmware_versions_ordered(conn: sqlite3.Connection) -> List[FirmwareVersion]:
+def get_firmware_versions_ordered(db: DBRepository) -> List[FirmwareVersion]:
     """Возвращает прошивки, отсортированные по дате выпуска (от старых к новым)."""
-    return get_all_firmware_versions(conn)
+    return db.firmware.get_all()
 
 
 def is_firmware_older(

@@ -8,18 +8,18 @@ from datetime import datetime
 # Добавляем путь к проекту, чтобы можно было импортировать core и services
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.db import get_db_connection, get_firmware_by_version
+from core.db import DBRepository
 
-def get_fw_id(conn, version):
-    fw = get_firmware_by_version(conn, version)
+def get_fw_id(db: DBRepository, version):
+    fw = db.firmware.get_by_version(version)
     if not fw:
         print(f"Ошибка: прошивка {version} не найдена.")
         return None
     return fw.id
 
-def search_config_params(conn, fw_id, query):
+def search_config_params(db: DBRepository, fw_id, query):
     """Поиск параметров в config_parameters по части имени или пути."""
-    cursor = conn.execute("""
+    cursor = db.connection.execute("""
         SELECT param_uuid, name, location 
         FROM config_parameters 
         WHERE (param_uuid LIKE ? OR name LIKE ? OR location LIKE ?) 
@@ -51,7 +51,7 @@ def add_api_method(conn, fw_id, name=None, http_method=None, url=None):
     control_method = input("Введите имя контрольного метода (для сверки результата), если есть: ")
 
     # ПРОВЕРКА НА ДУБЛИКАТЫ
-    check = conn.execute("""
+    check = db.connection.execute("""
         SELECT id FROM api_methods 
         WHERE method_name = ? AND http_method = ? AND firmware_version_id = ?
     """, (name, http_method, fw_id)).fetchone()
@@ -60,7 +60,7 @@ def add_api_method(conn, fw_id, name=None, http_method=None, url=None):
         print(f"  [!] ОШИБКА: Метод '{name}' [{http_method}] уже существует для этой прошивки (ID: {check[0]}).")
         return check[0], name
 
-    cursor = conn.execute("""
+    cursor = db.connection.execute("""
         INSERT INTO api_methods (method_name, http_method, firmware_version_id, method_url, positive_status, control_method_name)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (name, http_method, fw_id, url, int(pos_status), control_method or None))
@@ -69,7 +69,7 @@ def add_api_method(conn, fw_id, name=None, http_method=None, url=None):
     print(f"Метод добавлен с ID: {method_id}")
     return method_id, name
 
-def add_param_to_method(conn, method_id, fw_id, method_name):
+def add_param_to_method(db: DBRepository, method_id, fw_id, method_name):
     print(f"\n--- Добавление параметров для метода '{method_name}' ---")
     while True:
         param_uuid = input("\nВведите param_uuid (логическое имя параметра) или часть имени для поиска (или 'exit' для выхода): ")
@@ -77,7 +77,7 @@ def add_param_to_method(conn, method_id, fw_id, method_name):
             break
 
         # Проверяем точное совпадение
-        cursor = conn.execute("SELECT name, location FROM config_parameters WHERE param_uuid = ? AND firmware_version_id = ?", (param_uuid, fw_id))
+        cursor = db.connection.execute("SELECT name, location FROM config_parameters WHERE param_uuid = ? AND firmware_version_id = ?", (param_uuid, fw_id))
         config_param = cursor.fetchone()
         
         if not config_param:

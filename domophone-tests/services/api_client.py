@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 import yaml
 import os
 from loguru import logger
-from core import get_firmware_by_version, get_method_info
+from core import DBRepository
 from jsonpath_ng import parse
 
 
@@ -43,14 +43,14 @@ class ApiClient:
         logger.info("GET {} -> {} in {:.3f}s", f"{self.base_url}/api/v1/version", resp.status_code, time.monotonic()-t0)
         return resp.json().get("firmware_version")
 
-    def running_method(self, db, method_name, firmware_version_id, test_values=None) -> str:
+    def running_method(self, db: DBRepository, method_name, firmware_version_id, test_values=None) -> str:
         """получает url метода и его тип, а дальше выполняет метод"""
-        method_info = get_method_info(db, method_name, firmware_version_id)
+        method_info = db.api.get_method(method_name, firmware_version_id)
         t0 = time.monotonic()
         url = f"{self.base_url}{method_info.method_url}"
         method = method_info.http_method.upper()
         payload = test_values if (test_values is not None and method in {"POST", "PUT", "PATCH"}) else None
-        print(payload)
+        logger.debug("Request payload: {}", payload)
         try:
             resp = self.session.request(
                 method=method,
@@ -60,25 +60,30 @@ class ApiClient:
             )
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             logger.error("{} {} failed: {}, test_value = {}", method, url, e, test_values)
-            print(resp.text)
             raise
-        #print(test_values)
+        
+        if not resp.ok:
+            logger.error("Request failed with status {}: {}", resp.status_code, resp.text)
+        
         resp.raise_for_status()
         logger.info("{} {} -> {} in {:.3f}s", method, url, resp.status_code, time.monotonic()-t0)
         return resp
 
-    def get_parameter(self, db, param_uuid: str, firmware_version) -> Any:
+    def get_parameter(self, db: DBRepository, param_uuid: str, firmware_version) -> Any:
         """
         Получает значение параметра через правильный API-метод и JSONPath,
         используя метаданные из БД.
         """
         # Шаг 1: найдём текущую прошивку устройства
-        current_fw_version = firmware_version
-        fw = get_firmware_by_version(db, current_fw_version)
+        fw = db.firmware.get_by_version(firmware_version)
 
         # Шаг 2: найдём метод, который отдаёт этот параметр
-        # Ищем в api_method_params запись для (param_uuid, fw.id)
-        cursor = db.execute("""
+        # Используем репозиторий для получения параметров метода
+        # В данном случае нам нужен специфичный поиск, который мы можем добавить в ApiRepository
+        # Или выполнить через существующий метод, если он подходит.
+        # Для простоты пока оставим прямой запрос через db._conn или добавим метод в репозиторий.
+        
+        cursor = db._conn.execute("""
             SELECT amp.json_path, am.method_url, am.http_method
             FROM api_method_params amp
             JOIN api_methods am ON amp.method_id = am.id
