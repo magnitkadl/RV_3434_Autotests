@@ -10,6 +10,7 @@ class DataTypeEnum(IntEnum):
     STRING = 3
     BOOL = 4
     ENUM = 5
+    MATRIX_KKM = 9
 
 
 class FirmwareVersion(BaseModel):

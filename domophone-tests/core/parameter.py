@@ -26,7 +26,7 @@ class ParameterGenerator:
         elif isinstance(exclude_values, (list, tuple, set)):
             exclude_set = set(exclude_values)
         else:
-            exclude_set = {exclude_values}
+            exclude_set = [exclude_values]
 
         dt_id = param.data_type_id
         
@@ -44,6 +44,8 @@ class ParameterGenerator:
             return self._generate_complex(param, dt_id)
         elif dt_id == 12:
             return '{"s8CngMode":1,"s8NearAllPassEnergy":1,"s8NearCleanSupEnergy":1,"s16DTHnlSortQTh":16384,"s16EchoBandLow":10,"s16EchoBandHigh":41,"s16EchoBandLow2":47,"s16EchoBandHigh2":63,"s16ERLBand":[4,6,36,49,50,51],"s16ERL":[7,10,16,10,18,18,18],"s16VioceProtectFreqL":3,"s16VioceProtectFreqL1":6}'
+        elif dt_id == DataTypeEnum.MATRIX_KKM:
+            return self._generate_matrix_kkm(param, exclude_set)
         return None
 
     def _generate_int(self, param, exclude_set):
@@ -248,21 +250,60 @@ def generate_correct_api_method_params(db: DBRepository, method_params, api_clie
             _set_by_path(test_values, parameter.json_path, test_value)
 
         if parameter.gen_rule == 4:
-            if test_values.get('aspect_ratio_4:3') is True:
-                resolution_map = {
-                "640x480": "3",
-                "704x576": "8",
-                "720x480": "4", "352x288": "1"
-                }
-            else:
-                resolution_map = {
-                "1280x720": "6",
-                "704x576": "8",
-                "720x480": "4", "352x288": "1", "640x360": "2"
-                }
-            # 3. random.choice() выбирает случайный элемент из последовательности
+            resolution_map = {"1920x1080": "7", "1280x720": "6", "640x480": "3", "720x576": "5", "768x432": "10", "704x576": "8", "720x480": "4", "352x288": "1", "640x360": "2", "2560x1440": "9","1920x1440": "12", "1280x960": "11"}
+            rules = {"params":["aspect_ratio_4:3", "channel1.resolution"],
+"aspect_ratio_4:3":{
+	"True":["1920x1080", "1280x720",
+                "768x432", "704x576",
+                "720x480", "352x288", "640x360",
+                "2560x1440"],
+	"False":["640x480",
+                "704x576",
+                "720x480", "352x288",
+                "1920x1440", "1280x960"]},
+	"channel1.resolution":{
+			"2560x1440":["2560x1440","1920x1080","1280x720","768x432"],
+			"1920x1080":["2560x1440","1920x1080"],
+			"1280x720":["1280x720","2560x1440"],
+			"768x432":["768x432"],
+			"720x576":["720x576","1920x1440","1280x960","720x576"],
+			"704x576":["2560x1440","704x576","1920x1440","1280x960","704x576"],
+			"640x360":["2560x1440","640x360"],
+			"352x288":["2560x1440","352x288","1920x1440","1280x960","352x288"],
+
+			"1920x1440":["1920x1440","1280x960"],
+			"1280x960":["1920x1440","1280x960"],
+			"720x480":["1920x1440","1280x960","720x480"],
+			"640x480":["1920x1440","1280x960","640x480"]
+			}
+			}
+            logger.info(f"test_values: {test_values}")
+            for param in rules["params"]:
+                keys = param.split(".")
+                value = test_values
+                for k in keys:
+                    value = value.get(k)
+                    if value is None:
+                        break
+            
+                    if value is None:
+                        continue
+                logger.info(f"param: {param}, value: {value}")
+                if value is None:
+                    continue
+                rule_key = str(value)
+                
+                resolutions_to_remove = rules.get(param, {}).get(rule_key, [])
+                logger.info(f"resolutions_to_remove: {resolutions_to_remove}")
+                
+                for res in resolutions_to_remove:
+                    resolution_map.pop(res, None)
+
+         
             test_value = random.choice(list(resolution_map.keys()))
-        
+            logger.info(f"test_value: {test_value}")
+            logger.info(f"resolution_map: {resolution_map}")
+            
             _set_by_path(test_values, parameter.json_path, test_value)
     return test_values
 

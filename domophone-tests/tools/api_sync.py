@@ -28,7 +28,7 @@ def search_config_params(db: DBRepository, fw_id, query):
     """, (f'%{query}%', f'%{query}%', f'%{query}%', fw_id))
     return cursor.fetchall()
 
-def add_api_method(conn, fw_id, name=None, http_method=None, url=None):
+def add_api_method(db: DBRepository, fw_id, name=None, http_method=None, url=None):
     print("\n--- Добавление нового API-метода ---")
     
     # Очистка имени по умолчанию (берем только последнюю часть пути в коллекции)
@@ -106,8 +106,18 @@ def add_param_to_method(db: DBRepository, method_id, fw_id, method_name):
         in_req = input("  -> Передавать в запросе? (y/n, по умолчанию y): ").lower() != 'n'
         example = input("  -> Пример значения (необязательно): ")
 
-        conn.execute("""
-            INSERT INTO api_method_params (method_id, param_uuid, firmware_version_id, json_path, is_required, in_request, example_value)
+        # ПРОВЕРКА НА ДУБЛИКАТЫ ПАРАМЕТРОВ
+        check_param = db.connection.execute("""
+            SELECT id FROM api_method_params 
+            WHERE method_id = ? AND related_params_uuid = ? AND firmware_version_id = ? AND json_path = ?
+        """, (method_id, param_uuid, fw_id, json_path)).fetchone()
+
+        if check_param:
+            print(f"  -> [!] ВНИМАНИЕ: Параметр {param_uuid} уже привязан к этому методу по пути {json_path}. Пропускаем.")
+            continue
+
+        db.connection.execute("""
+            INSERT INTO api_method_params (method_id, related_params_uuid, firmware_version_id, json_path, is_required, in_request, example_value)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (method_id, param_uuid, fw_id, json_path, 1 if is_req else 0, 1 if in_req else 0, example or None))
         print(f"  -> Параметр {param_uuid} привязан к методу.")
@@ -128,7 +138,12 @@ def traverse_json(data, path=''):
     else:
         yield path, data
 
-def map_json_to_api_params(conn, method_id, fw_id, sample_json_str):
+def snake_to_camel(snake_str):
+    """Преобразует snake_case в camelCase."""
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+def map_json_to_api_params(db: DBRepository, method_id, fw_id, sample_json_str):
     """Интерактивное сопоставление JSON с параметрами конфигурации."""
     try:
         data = json.loads(sample_json_str)
@@ -137,25 +152,47 @@ def map_json_to_api_params(conn, method_id, fw_id, sample_json_str):
         return
 
     print("\n--- Анализ JSON и привязка параметров ---")
+    
+    # Получаем уже добавленные пути для этого метода, чтобы не предлагать их снова
+    cursor_existing = db.connection.execute(
+        "SELECT json_path FROM api_method_params WHERE method_id = ? AND firmware_version_id = ?", 
+        (method_id, fw_id)
+    )
+    existing_paths = {row[0] for row in cursor_existing.fetchall()}
+
     for json_path, value in traverse_json(data):
+        if json_path in existing_paths:
+            # logger.debug(f"Путь {json_path} уже есть в БД, пропускаем")
+            continue
+
         print(f"\nОбнаружен путь в JSON: {json_path} (значение: {value})")
         
         # Пытаемся найти соответствие в БД
         # 1. По точному совпадению пути (location)
-        cursor = conn.execute("SELECT param_uuid, name FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (json_path, fw_id))
+        cursor = db.connection.execute("SELECT param_uuid, name FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (json_path, fw_id))
         match = cursor.fetchone()
         
         if not match:
             # 2. По совпадению с settings.path
-            cursor = conn.execute("SELECT param_uuid, name FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (f"settings.{json_path}", fw_id))
+            cursor = db.connection.execute("SELECT param_uuid, name FROM config_parameters WHERE location = ? AND firmware_version_id = ?", (f"settings.{json_path}", fw_id))
             match = cursor.fetchone()
             
         if not match:
             # 3. УМНОЕ СОПОСТАВЛЕНИЕ: поиск параметра, путь которого заканчивается на этот ключ (например volume -> settings.system_audio.volume)
-            cursor = conn.execute("""
+            cursor = db.connection.execute("""
                 SELECT param_uuid, name, location FROM config_parameters 
                 WHERE (location LIKE ? OR param_uuid LIKE ?) AND firmware_version_id = ?
             """, (f'%.{json_path}', f'%.{json_path}', fw_id))
+            match = cursor.fetchone()
+
+        if not match:
+            # 4. УМНОЕ СОПОСТАВЛЕНИЕ (camelCase): пробуем преобразовать snake_case из JSON в camelCase для поиска в БД
+            camel_key = snake_to_camel(json_path)
+            cursor = db.connection.execute("""
+                SELECT param_uuid, name, location FROM config_parameters 
+                WHERE (location LIKE ? OR param_uuid LIKE ? OR location LIKE ? OR param_uuid LIKE ?) 
+                AND firmware_version_id = ?
+            """, (f'%.{camel_key}', f'%.{camel_key}', f'%{camel_key}%', f'%{camel_key}%', fw_id))
             match = cursor.fetchone()
 
         if match:
@@ -171,7 +208,7 @@ def map_json_to_api_params(conn, method_id, fw_id, sample_json_str):
             param_uuid = match[0]
         elif action == 'f':
             query = input("    Введите часть имени или пути для поиска: ")
-            results = search_config_params(conn, fw_id, query)
+            results = search_config_params(db, fw_id, query)
             if results:
                 print("\n    Результаты поиска:")
                 for i, r in enumerate(results):
@@ -195,8 +232,18 @@ def map_json_to_api_params(conn, method_id, fw_id, sample_json_str):
         is_req = input("  -> Параметр обязателен? (y/n, по умолчанию y): ").lower() != 'n'
         in_req = input("  -> Передавать в запросе? (y/n, по умолчанию y): ").lower() != 'n'
         
-        conn.execute("""
-            INSERT INTO api_method_params (method_id, param_uuid, firmware_version_id, json_path, is_required, in_request, example_value)
+        # ПРОВЕРКА НА ДУБЛИКАТЫ ПАРАМЕТРОВ
+        check_param = db.connection.execute("""
+            SELECT id FROM api_method_params 
+            WHERE method_id = ? AND related_params_uuid = ? AND firmware_version_id = ? AND json_path = ?
+        """, (method_id, param_uuid, fw_id, json_path)).fetchone()
+
+        if check_param:
+            print(f"  -> [!] ВНИМАНИЕ: Параметр {param_uuid} уже привязан к этому методу по пути {json_path}. Пропускаем.")
+            continue
+
+        db.connection.execute("""
+            INSERT INTO api_method_params (method_id, related_params_uuid, firmware_version_id, json_path, is_required, in_request, example_value)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (method_id, param_uuid, fw_id, json_path, 1 if is_req else 0, 1 if in_req else 0, str(value)))
         print(f"  -> Параметр {param_uuid} привязан.")
@@ -219,7 +266,7 @@ def extract_methods_from_postman(items, parent_name=''):
             })
     return methods
 
-def add_methods_from_postman(conn, fw_id, collection_path):
+def add_methods_from_postman(db: DBRepository, fw_id, collection_path):
     """Интерактивное добавление методов из Postman-коллекции."""
     try:
         with open(collection_path, 'r', encoding='utf-8') as f:
@@ -248,7 +295,7 @@ def add_methods_from_postman(conn, fw_id, collection_path):
         choice = input("\nВыберите номер для добавления (или Enter для нового поиска): ")
         if choice.isdigit() and 1 <= int(choice) <= len(matches):
             m = matches[int(choice)-1]
-            method_id, method_name = add_api_method(conn, fw_id, m['name'], m['method'], m['url'])
+            method_id, method_name = add_api_method(db, fw_id, m['name'], m['method'], m['url'])
             
             print("\n  1. Добавить параметры вручную")
             print("  2. Добавить параметры из Body запроса (Postman)")
@@ -257,26 +304,26 @@ def add_methods_from_postman(conn, fw_id, collection_path):
             
             subchoice = input("  Выберите действие: ")
             if subchoice == '1':
-                add_param_to_method(conn, method_id, fw_id, method_name)
+                add_param_to_method(db, method_id, fw_id, method_name)
             elif subchoice == '2':
                 if m['body']:
-                    map_json_to_api_params(conn, method_id, fw_id, m['body'])
+                    map_json_to_api_params(db, method_id, fw_id, m['body'])
                 else:
                     print("  [!] У этого метода нет Body в коллекции.")
             elif subchoice == '3':
                 print("\nВставьте JSON и завершите ввод (Ctrl+D/Ctrl+Z):")
                 sample_json = sys.stdin.read()
                 if sample_json.strip():
-                    map_json_to_api_params(conn, method_id, fw_id, sample_json)
+                    map_json_to_api_params(db, method_id, fw_id, sample_json)
             
-            conn.commit()
+            db.connection.commit()
             print(f"\nМетод '{method_name}' и его параметры сохранены.")
 
-def copy_api_methods(conn, source_fw_id, target_fw_id):
+def copy_api_methods(db: DBRepository, source_fw_id, target_fw_id):
     print(f"\n--- Копирование API-методов из FW ID {source_fw_id} в FW ID {target_fw_id} ---")
     
     # 1. Получаем все методы из исходной прошивки
-    cursor = conn.execute("SELECT * FROM api_methods WHERE firmware_version_id = ?", (source_fw_id,))
+    cursor = db.connection.execute("SELECT * FROM api_methods WHERE firmware_version_id = ?", (source_fw_id,))
     methods = cursor.fetchall()
     
     for method in methods:
@@ -285,7 +332,7 @@ def copy_api_methods(conn, source_fw_id, target_fw_id):
         method_dict['firmware_version_id'] = target_fw_id
         
         # Проверяем, нет ли уже такого метода в целевой прошивке
-        check = conn.execute("SELECT id FROM api_methods WHERE method_name = ? AND firmware_version_id = ?", 
+        check = db.connection.execute("SELECT id FROM api_methods WHERE method_name = ? AND firmware_version_id = ?", 
                              (method_dict['method_name'], target_fw_id)).fetchone()
         if check:
             print(f"  -> Метод '{method_dict['method_name']}' уже существует, пропускаем.")
@@ -295,11 +342,11 @@ def copy_api_methods(conn, source_fw_id, target_fw_id):
         
         columns = ", ".join(method_dict.keys())
         placeholders = ", ".join([":" + k for k in method_dict.keys()])
-        cursor_new = conn.execute(f"INSERT INTO api_methods ({columns}) VALUES ({placeholders})", method_dict)
+        cursor_new = db.connection.execute(f"INSERT INTO api_methods ({columns}) VALUES ({placeholders})", method_dict)
         new_method_id = cursor_new.lastrowid
         
         # 2. Копируем параметры этого метода
-        cursor_params = conn.execute("SELECT * FROM api_method_params WHERE method_id = ? AND firmware_version_id = ?", 
+        cursor_params = db.connection.execute("SELECT * FROM api_method_params WHERE method_id = ? AND firmware_version_id = ?", 
                                      (old_method_id, source_fw_id))
         params = cursor_params.fetchall()
         
@@ -311,13 +358,14 @@ def copy_api_methods(conn, source_fw_id, target_fw_id):
             
             p_cols = ", ".join(param_dict.keys())
             p_placeholders = ", ".join([":" + k for k in param_dict.keys()])
-            conn.execute(f"INSERT INTO api_method_params ({p_cols}) VALUES ({p_placeholders})", param_dict)
+            db.connection.execute(f"INSERT INTO api_method_params ({p_cols}) VALUES ({p_placeholders})", param_dict)
             
     print("Копирование завершено.")
 
 def sync_api(db_path, firmware_version, collection_path=None):
-    with get_db_connection(db_path) as conn:
-        fw_id = get_fw_id(conn, firmware_version)
+    db = DBRepository(db_path)
+    with db:
+        fw_id = get_fw_id(db, firmware_version)
         if not fw_id: return
 
         print(f"Работаем с прошивкой: {firmware_version} (ID: {fw_id})")
@@ -333,22 +381,22 @@ def sync_api(db_path, firmware_version, collection_path=None):
             choice = input("Выберите действие: ")
             
             if choice == '1':
-                method_id, method_name = add_api_method(conn, fw_id)
-                add_param_to_method(conn, method_id, fw_id, method_name)
-                conn.commit()
+                method_id, method_name = add_api_method(db, fw_id)
+                add_param_to_method(db, method_id, fw_id, method_name)
+                db.connection.commit()
             elif choice == '2':
-                method_id, method_name = add_api_method(conn, fw_id)
+                method_id, method_name = add_api_method(db, fw_id)
                 print("\nВставьте JSON-образец (запроса или ответа) и нажмите Ctrl+D (или Ctrl+Z на Windows) для завершения:")
                 sample_json = sys.stdin.read()
                 if sample_json.strip():
-                    map_json_to_api_params(conn, method_id, fw_id, sample_json)
-                    conn.commit()
+                    map_json_to_api_params(db, method_id, fw_id, sample_json)
+                    db.connection.commit()
             elif choice == '3':
                 path = collection_path or input("Введите путь к Postman-коллекции: ")
                 if path:
-                    add_methods_from_postman(conn, fw_id, path)
+                    add_methods_from_postman(db, fw_id, path)
             elif choice == '4':
-                cursor = conn.execute("SELECT id, method_name FROM api_methods WHERE firmware_version_id = ?", (fw_id,))
+                cursor = db.connection.execute("SELECT id, method_name FROM api_methods WHERE firmware_version_id = ?", (fw_id,))
                 methods = cursor.fetchall()
                 if not methods:
                     print("Методы не найдены.")
@@ -367,17 +415,17 @@ def sync_api(db_path, firmware_version, collection_path=None):
                     print("  b. Добавить из JSON-образца")
                     subchoice = input("  Выберите способ: ").lower()
                     if subchoice == 'a':
-                        add_param_to_method(conn, int(m_id), fw_id, m_name)
+                        add_param_to_method(db, int(m_id), fw_id, m_name)
                     elif subchoice == 'b':
                         print("\nВставьте JSON-образец и завершите ввод (Ctrl+D/Ctrl+Z):")
                         sample_json = sys.stdin.read()
                         if sample_json.strip():
-                            map_json_to_api_params(conn, int(m_id), fw_id, sample_json)
-                    conn.commit()
+                            map_json_to_api_params(db, int(m_id), fw_id, sample_json)
+                    db.connection.commit()
                 else:
                     print("Неверный ID.")
             elif choice == '5':
-                cursor = conn.execute("SELECT id, version FROM firmware_versions WHERE id != ?", (fw_id,))
+                cursor = db.connection.execute("SELECT id, version FROM firmware_versions WHERE id != ?", (fw_id,))
                 fws = cursor.fetchall()
                 if not fws:
                     print("Другие прошивки не найдены.")
@@ -391,8 +439,8 @@ def sync_api(db_path, firmware_version, collection_path=None):
                 if source_id.lower() == 'b': continue
                 
                 if any(str(f[0]) == source_id for f in fws):
-                    copy_api_methods(conn, int(source_id), fw_id)
-                    conn.commit()
+                    copy_api_methods(db, int(source_id), fw_id)
+                    db.connection.commit()
                 else:
                     print("Неверный ID.")
             elif choice == '6':
